@@ -246,6 +246,16 @@ export default function Home() {
     const cocktail = cocktailsData.find((c) => c.id === selectedCocktail)
     if (!cocktail) return
 
+    // Prevent making manual cocktails via machine
+    if (cocktail.manualIngredients && cocktail.manualIngredients.length > 0) {
+      toast({
+        title: "Manuelles Rezept",
+        description: "Dieses Rezept muss manuell zubereitet werden.",
+        variant: "default",
+      })
+      return
+    }
+
     setIsMaking(true)
     setProgress(0)
     setStatusMessage("Bereite Cocktail vor...")
@@ -297,7 +307,13 @@ export default function Home() {
   const getCurrentVolume = () => {
     const cocktail = cocktailsData.find((c) => c.id === selectedCocktail)
     if (!cocktail) return 0
-    return cocktail.recipe.reduce((total, item) => total + item.amount, 0)
+
+    if (cocktail.recipe && cocktail.recipe.length > 0) {
+      return cocktail.recipe.reduce((total, item) => total + item.amount, 0)
+    } else if (cocktail.manualIngredients && cocktail.manualIngredients.length > 0) {
+      return cocktail.manualIngredients.reduce((total, item) => total + item.amount, 0)
+    }
+    return 0
   }
 
   // Prüfe, ob für den ausgewählten Cocktail genügend Zutaten vorhanden sind
@@ -306,6 +322,11 @@ export default function Home() {
 
     const cocktail = cocktailsData.find((c) => c.id === selectedCocktail)
     if (!cocktail) return true
+
+    // If it's a manual recipe, ingredient availability check is not applicable for machine dispensing
+    if (cocktail.manualIngredients && cocktail.manualIngredients.length > 0) {
+      return true // Always "available" for manual recipes as they are not machine-made
+    }
 
     // Skaliere das Rezept auf die gewünschte Größe
     const currentTotal = cocktail.recipe.reduce((total, item) => total + item.amount, 0)
@@ -500,6 +521,9 @@ export default function Home() {
 
     const availableSizes = [200, 300, 400]
 
+    const isAutomaticRecipe = cocktail.recipe && cocktail.recipe.length > 0
+    const isManualRecipe = cocktail.manualIngredients && cocktail.manualIngredients.length > 0
+
     return (
       <Card className="overflow-hidden transition-all bg-black border-[hsl(var(--cocktail-card-border))] ring-2 ring-[hsl(var(--cocktail-primary))] shadow-2xl">
         <div className="flex flex-col md:flex-row">
@@ -564,21 +588,30 @@ export default function Home() {
                     Originalrezept: ca. {getCurrentVolume()}ml
                   </div>
                 </div>
-                {!checkIngredientsAvailable() && (
-                  <Alert className="bg-[hsl(var(--cocktail-error))]/10 border-[hsl(var(--cocktail-error))]/30 mb-6">
-                    <AlertCircle className="h-4 w-4 text-[hsl(var(--cocktail-error))]" />
-                    <AlertDescription className="text-[hsl(var(--cocktail-error))] text-sm">
-                      Nicht genügend Zutaten vorhanden! Bitte fülle die Zutaten nach.
+                {!checkIngredientsAvailable() &&
+                  isAutomaticRecipe && ( // Only show alert for automatic recipes
+                    <Alert className="bg-[hsl(var(--cocktail-error))]/10 border-[hsl(var(--cocktail-error))]/30 mb-6">
+                      <AlertCircle className="h-4 w-4 text-[hsl(var(--cocktail-error))]" />
+                      <AlertDescription className="text-[hsl(var(--cocktail-error))] text-sm">
+                        Nicht genügend Zutaten vorhanden! Bitte fülle die Zutaten nach.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                {isManualRecipe && ( // Message for manual recipes
+                  <Alert className="bg-[hsl(var(--cocktail-warning))]/10 border-[hsl(var(--cocktail-warning))]/30 mb-6">
+                    <AlertCircle className="h-4 w-4 text-[hsl(var(--cocktail-warning))]" />
+                    <AlertDescription className="text-[hsl(var(--cocktail-warning))] text-sm">
+                      Dies ist ein manuelles Rezept. Bitte bereite es selbst zu.
                     </AlertDescription>
                   </Alert>
                 )}
                 <div className="flex flex-col gap-3 mt-auto">
                   <Button
                     onClick={handleMakeCocktail}
-                    disabled={!checkIngredientsAvailable()}
+                    disabled={!isAutomaticRecipe || !checkIngredientsAvailable()} // Disable if manual or ingredients not available
                     className="w-full py-3 text-lg bg-[hsl(var(--cocktail-primary))] hover:bg-[hsl(var(--cocktail-primary-hover))] text-black font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
                   >
-                    Cocktail zubereiten ({selectedSize}ml)
+                    {isAutomaticRecipe ? `Cocktail zubereiten (${selectedSize}ml)` : "Manuelles Rezept"}
                   </Button>
                   <Button
                     variant="outline"
