@@ -331,7 +331,7 @@ export default function Home() {
     // Filtere nur automatische Zutaten für die Füllstandsprüfung
     const automaticRecipe = cocktail.recipe.filter(item => item.type === 'automatic');
 
-    // Wenn keine automatischen Zutaten vorhanden sind, ist der Cocktail "verfügbar"
+    // Wenn keine automatischen Zutaten vorhanden sind, ist der Cocktail verfügbar (nur manuelle Zutaten)
     if (automaticRecipe.length === 0) return true;
 
     // Berechne das Gesamtvolumen des gesamten Rezepts (automatisch + manuell) für die Skalierung
@@ -345,7 +345,8 @@ export default function Home() {
     // Prüfe nur automatische Zutaten auf Verfügbarkeit
     for (const item of automaticRecipe) {
       const level = ingredientLevels.find((level) => level.ingredientId === item.ingredientId)
-      const pump = pumpConfig.find((pc) => pc.ingredientId === item.ingredientId);
+      // KORREKTUR: Suche nach 'ingredient' statt 'ingredientId' in der Pumpenkonfiguration
+      const pump = pumpConfig.find((pc) => pc.ingredient === item.ingredientId);
 
       // Wenn keine Füllstandsdaten ODER keine Pumpenkonfiguration für eine automatische Zutat gefunden wird, ist sie nicht verfügbar
       if (!level || !pump) {
