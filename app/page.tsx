@@ -18,10 +18,12 @@ import {
   getAllCocktails,
   makeCocktail,
   deleteRecipe,
-  getCocktailMachineConfig,
-  saveCocktailMachineConfig,
+  getCocktailMachineConfig, // Import hinzugefügt
+  saveCocktailMachineConfig, // Import hinzugefügt
 } from "@/lib/cocktail-machine"
-import type { Cocktail, CocktailMachineConfig } from "@/types/cocktail"
+import type { Cocktail } from "@/types/cocktail"
+import type { CocktailMachineConfig, IngredientConfig } from "@/types/cocktail-machine-config" // Neue Imports
+import type { PumpConfig } from "@/types/pump" // Bestehender Import
 import { useToast } from "@/components/ui/use-toast"
 import RecipeCreator from "@/components/recipe-creator"
 import RecipeEditor from "@/components/recipe-editor"
@@ -54,7 +56,7 @@ export default function Home() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
   const [passwordModalPurpose, setPasswordModalPurpose] = useState<"settings" | "delete" | null>(null)
-  const [config, setConfig] = useState<CocktailMachineConfig | null>(null)
+  const [config, setConfig] = useState<CocktailMachineConfig | null>(null) // Typ aktualisiert
   const [isPumpCleaningOpen, setIsPumpCleaningOpen] = useState(false)
 
   const { toast } = useToast()
@@ -94,6 +96,14 @@ export default function Home() {
 
   const handleMakeCocktail = async (cocktail: Cocktail) => {
     if (isMakingCocktail) return
+    if (!config) {
+      toast({
+        title: "Fehler",
+        description: "Maschinenkonfiguration nicht geladen.",
+        variant: "destructive",
+      })
+      return
+    }
 
     // Check if there are any automatic ingredients
     const hasAutomaticIngredients = cocktail.recipe && cocktail.recipe.length > 0;
@@ -124,7 +134,7 @@ export default function Home() {
     setMakeStatus("Startet...")
 
     try {
-      const result = await makeCocktail(cocktail, (progress, status) => {
+      const result = await makeCocktail(cocktail, config, 300, (progress, status) => { // Standardgröße 300ml
         setMakeProgress(progress)
         setMakeStatus(status)
       })
@@ -134,6 +144,8 @@ export default function Home() {
           title: "Erfolg!",
           description: `${cocktail.name} wurde zubereitet!`,
         })
+        // Nach erfolgreicher Zubereitung die Füllstände neu laden
+        await loadConfig();
       } else {
         toast({
           title: "Fehler",
@@ -257,9 +269,11 @@ export default function Home() {
 
   const checkIngredientsAvailable = (cocktail: Cocktail) => {
     const missing: { id: string; name: string }[] = []
+    if (!config) return missing; // Kann nicht prüfen, wenn Konfiguration nicht geladen
+
     if (cocktail.recipe) { // Only check automatic ingredients for availability
       cocktail.recipe.forEach((item) => {
-        const ingredientConfig = config?.ingredients.find((i) => i.id === item.ingredientId)
+        const ingredientConfig = config.ingredients.find((i) => i.id === item.ingredientId)
         if (!ingredientConfig || ingredientConfig.currentLevel < item.amount) {
           missing.push({ id: item.ingredientId, name: getIngredientName(item.ingredientId) })
         }
@@ -335,6 +349,7 @@ export default function Home() {
         isOpen={isDeleteConfirmationOpen}
         onClose={() => setIsDeleteConfirmationOpen(false)}
         onConfirm={handleDeleteConfirm}
+        cocktailName={cocktailToDelete ? cocktails.find(c => c.id === cocktailToDelete)?.name || "" : ""}
       />
 
       {/* Password Modal */}
