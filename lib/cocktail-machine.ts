@@ -1,90 +1,148 @@
-// lib/cocktail-machine.ts
-// Diese Datei enthält clientseitige Funktionen, die mit dem Backend interagieren oder Operationen simulieren.
-
 import type { Cocktail } from "@/types/cocktail"
-import { ingredients } from "@/data/ingredients" // Annahme: Zutaten-Daten sind clientseitig verfügbar
 import type { PumpConfig } from "@/types/pump"
+import { ingredients } from "@/data/ingredients"
+import { pumpConfig as defaultPumpConfig } from "@/data/pump-config"
+import { cocktails as defaultCocktails } from "@/data/cocktails"
 
-// Simuliert die Zubereitung eines Cocktails, indem Pumpen für automatische Zutaten "aktiviert" werden.
-// In einer echten Anwendung würde dies eine Server-API-Route aufrufen.
-export async function makeCocktail(cocktail: Cocktail, pumpConfig: PumpConfig[], selectedSize: number): Promise<void> {
-  const currentTotalVolume = cocktail.recipe.reduce((total, item) => total + item.amount, 0);
-  const scaleFactor = selectedSize / currentTotalVolume;
+// In-memory storage for demonstration purposes
+let currentCocktails: Cocktail[] = defaultCocktails.map(cocktail => ({
+  ...cocktail,
+  recipe: cocktail.recipe.map(item => ({
+    ...item,
+    type: (item as any).type || 'automatic', // Ensure type is set for existing cocktails
+    instruction: (item as any).instruction || ''
+  }))
+}));
+
+let currentPumpConfig: PumpConfig[] = defaultPumpConfig;
+
+// Simulate GPIO control
+const simulateGpioControl = async (pin: number, duration: number) => {
+  console.log(`Simulating GPIO pin ${pin} ON for ${duration}ms`)
+  return new Promise((resolve) => setTimeout(resolve, duration))
+}
+
+// Simulate API calls
+export const getAllCocktails = async (): Promise<Cocktail[]> => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      console.log("Fetching all cocktails (simulated)")
+      resolve(currentCocktails)
+    }, 500)
+  })
+}
+
+export const getPumpConfig = async (): Promise<PumpConfig[]> => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      console.log("Fetching pump configuration (simulated)")
+      resolve(currentPumpConfig)
+    }, 300)
+  })
+}
+
+export const saveRecipe = async (cocktail: Cocktail): Promise<void> => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const index = currentCocktails.findIndex((c) => c.id === cocktail.id)
+      if (index > -1) {
+        currentCocktails[index] = cocktail
+        console.log(`Cocktail "${cocktail.name}" updated (simulated)`)
+      } else {
+        currentCocktails.push(cocktail)
+        console.log(`Cocktail "${cocktail.name}" added (simulated)`)
+      }
+      resolve()
+    }, 500)
+  })
+}
+
+export const deleteRecipe = async (cocktailId: string): Promise<void> => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      currentCocktails = currentCocktails.filter((c) => c.id !== cocktailId)
+      console.log(`Cocktail with ID "${cocktailId}" deleted (simulated)`)
+      resolve()
+    }, 300)
+  })
+}
+
+export const updatePumpConfig = async (config: PumpConfig[]): Promise<void> => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      currentPumpConfig = config
+      console.log("Pump configuration updated (simulated)")
+      resolve()
+    }, 300)
+  })
+}
+
+export const makeCocktail = async (
+  cocktail: Cocktail,
+  pumpConfig: PumpConfig[],
+  selectedSize: number,
+): Promise<void> => {
+  console.log(`Starting to make cocktail: ${cocktail.name} (${selectedSize}ml)`)
+
+  const totalRecipeVolume = cocktail.recipe.reduce((total, item) => total + item.amount, 0)
+  if (totalRecipeVolume === 0) {
+    throw new Error("Rezept hat keine Zutaten oder Gesamtvolumen ist Null.")
+  }
+  const scaleFactor = selectedSize / totalRecipeVolume
 
   for (const item of cocktail.recipe) {
+    const ingredient = ingredients.find((i) => i.id === item.ingredientId)
+    const scaledAmount = Math.round(item.amount * scaleFactor)
+
     if (item.type === 'automatic') {
-      const amountToDispense = Math.round(item.amount * scaleFactor);
-      console.log(`Bereite vor, ${amountToDispense}ml von ${item.ingredientId} (automatisch) auszugeben`);
+      const pump = pumpConfig.find((p) => p.ingredientId === item.ingredientId)
 
-      const pumpInfo = pumpConfig.find(pc => pc.ingredientId === item.ingredientId);
-      if (!pumpInfo) {
-        console.warn(`Keine Pumpenkonfiguration für automatische Zutat gefunden: ${item.ingredientId}. Überspringe.`);
-        continue;
+      if (!pump) {
+        throw new Error(`Pumpe für Zutat "${ingredient?.name || item.ingredientId}" nicht konfiguriert.`)
       }
 
-      const ingredientData = ingredients.find(ing => ing.id === item.ingredientId);
-      if (!ingredientData || ingredientData.flowRate === undefined) {
-        console.warn(`Durchflussrate für Zutat nicht gefunden: ${item.ingredientId}. Kann nicht ausgeben.`);
-        continue;
-      }
-
-      const dispenseTimeMs = amountToDispense * ingredientData.flowRate;
-      console.log(`Simuliere Pumpenaktivierung für ${item.ingredientId} an GPIO Pin ${pumpInfo.gpioPin} für ${dispenseTimeMs}ms`);
-
-      // Simuliere API-Aufruf zur Pumpenaktivierung
-      // In einer echten App: await fetch('/api/gpio/activate-pump', { method: 'POST', body: JSON.stringify({ pin: pumpInfo.gpioPin, duration: dispenseTimeMs }) });
-      await new Promise((resolve) => setTimeout(resolve, dispenseTimeMs));
+      const duration = (scaledAmount / pump.calibrationValue) * 1000 // ml / (ml/s) * 1000ms/s = ms
+      console.log(
+        `Dispensing ${scaledAmount}ml of ${ingredient?.name || item.ingredientId} using pump ${pump.pumpId} (GPIO ${pump.gpioPin}) for ${duration}ms`,
+      )
+      await simulateGpioControl(pump.gpioPin, duration)
     } else {
-      console.log(`Manuelle Zutat: ${item.amount}ml ${item.ingredientId}. Benutzer wird hinzufügen.`);
-      if (item.instruction) {
-        console.log(`Anleitung für manuelle Zutat: ${item.instruction}`);
-      }
+      console.log(`Manuelle Zutat: ${scaledAmount}ml ${ingredient?.name || item.ingredientId}. Anleitung: ${item.instruction || 'Keine spezielle Anleitung.'}`);
     }
   }
+
+  console.log(`Finished making cocktail: ${cocktail.name}`)
 }
 
-// Simuliert das Speichern eines Rezepts. In einer echten App würde dies eine Server-API-Route aufrufen.
-export async function saveRecipe(cocktail: Cocktail): Promise<void> {
-  console.log("Speichere Rezept (simuliert):", cocktail);
-  // In einer echten App: await fetch('/api/recipes', { method: 'POST', body: JSON.stringify(cocktail) });
-  return new Promise((resolve) => setTimeout(resolve, 500));
-}
+// New function to activate a single pump for a duration
+export const activatePumpForDuration = async (
+  pumpId: string,
+  durationMs: number,
+  pumpConfig: PumpConfig[]
+): Promise<void> => {
+  const pump = pumpConfig.find(p => p.pumpId === pumpId);
+  if (!pump) {
+    throw new Error(`Pumpe mit ID "${pumpId}" nicht gefunden.`);
+  }
 
-// Simuliert das Löschen eines Rezepts. In einer echten App würde dies eine Server-API-Route aufrufen.
-export async function deleteRecipe(cocktailId: string): Promise<void> {
-  console.log("Lösche Rezept (simuliert):", cocktailId);
-  // In einer echten App: await fetch(`/api/recipes/${cocktailId}`, { method: 'DELETE' });
-  return new Promise((resolve) => setTimeout(resolve, 500));
-}
+  console.log(`Aktivierung von Pumpe ${pump.pumpId} (GPIO ${pump.gpioPin}) für ${durationMs}ms`);
+  await simulateGpioControl(pump.gpioPin, durationMs);
+  console.log(`Pumpe ${pump.pumpId} deaktiviert.`);
+};
 
-// Simuliert das Abrufen aller Cocktails. In einer echten App würde dies eine Server-API-Route aufrufen.
-// Für v0 geben wir ein Mock-Cocktail zurück, der dem neuen Typ entspricht.
-export async function getAllCocktails(): Promise<Cocktail[]> {
-  console.log("Hole alle Cocktails (simuliert)");
-  return new Promise((resolve) => setTimeout(() => resolve([
-    {
-      id: "mock-cocktail-1",
-      name: "Mocktail mit Anleitung",
-      description: "Ein Test-Cocktail mit automatischen und manuellen Zutaten.",
-      image: "/placeholder.svg?height=200&width=400",
-      alcoholic: false,
-      ingredients: ["100ml Wasser (automatisch)", "50ml Sirup (automatisch)", "200ml Cola (manuell)"],
-      recipe: [
-        { ingredientId: "water", amount: 100, type: 'automatic', instruction: '' },
-        { ingredientId: "simple_syrup", amount: 50, type: 'automatic', instruction: '' },
-        { ingredientId: "cola", amount: 200, type: 'manual', instruction: 'Mit Cola auffüllen' },
-      ],
-    },
-  ]), 500));
-}
+// New function to make a single shot
+export const makeSingleShot = async (
+  ingredientId: string,
+  amountMl: number,
+  pumpConfig: PumpConfig[]
+): Promise<void> => {
+  const pump = pumpConfig.find(p => p.ingredientId === ingredientId);
+  if (!pump) {
+    throw new Error(`Pumpe für Zutat "${ingredientId}" nicht konfiguriert.`);
+  }
 
-// Simuliert das Abrufen der Pumpenkonfiguration. In einer echten App würde dies eine Server-API-Route aufrufen.
-// Für v0 geben wir eine Mock-Konfiguration zurück.
-export async function getPumpConfig(): Promise<PumpConfig[]> {
-  console.log("Hole Pumpenkonfiguration (simuliert)");
-  return new Promise((resolve) => setTimeout(() => resolve([
-    { ingredientId: "water", gpioPin: 17, flowRate: 100 },
-    { ingredientId: "simple_syrup", gpioPin: 27, flowRate: 50 },
-    // Weitere simulierte Pumpenkonfigurationen hier
-  ]), 500));
-}
+  const duration = (amountMl / pump.calibrationValue) * 1000; // ml / (ml/s) * 1000ms/s = ms
+  console.log(`Zubereitung eines Shots: ${amountMl}ml ${ingredientId} (Pumpe ${pump.pumpId}, GPIO ${pump.gpioPin}) für ${duration}ms`);
+  await simulateGpioControl(pump.gpioPin, duration);
+  console.log(`Shot von ${ingredientId} fertig.`);
+};
