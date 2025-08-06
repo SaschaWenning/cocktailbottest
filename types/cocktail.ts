@@ -11,7 +11,7 @@ export interface Cocktail {
   }[]
   manualIngredients?: {
     name: string
-    amount: string
+    amount: number // Changed from string to number
     instruction: string
   }[]
 }
