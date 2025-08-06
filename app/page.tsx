@@ -109,7 +109,7 @@ export default function Home() {
         }));
         setCocktailsData(transformedDefaultCocktails);
 
-        await Promise.all([loadIngredientLevels(), loadPumpConfig()])
+        await Promise.all([loadIngredientLevels(), loadPumpConfig(), loadCocktails()])
       } catch (error) {
         console.error("Fehler beim Laden der Daten:", error)
       } finally {
@@ -331,13 +331,14 @@ export default function Home() {
     // Filtere nur automatische Zutaten für die Füllstandsprüfung
     const automaticRecipe = cocktail.recipe.filter(item => item.type === 'automatic');
 
+    // Wenn keine automatischen Zutaten vorhanden sind, ist der Cocktail "verfügbar"
+    if (automaticRecipe.length === 0) return true;
+
     // Berechne das Gesamtvolumen des gesamten Rezepts (automatisch + manuell) für die Skalierung
     const totalRecipeVolume = cocktail.recipe.reduce((total, item) => total + item.amount, 0);
 
     // Wenn das Gesamtvolumen 0 ist, aber es Zutaten gibt, ist etwas nicht in Ordnung
     if (totalRecipeVolume === 0 && cocktail.recipe.length > 0) return false;
-    // Wenn keine Zutaten im Rezept sind, sind sie "verfügbar"
-    if (totalRecipeVolume === 0 && cocktail.recipe.length === 0) return true;
 
     const scaleFactor = selectedSize / totalRecipeVolume;
 
