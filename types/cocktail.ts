@@ -6,13 +6,11 @@ export interface Cocktail {
   alcoholic: boolean
   recipe: {
     ingredientId: string
-    amount: number
+    amount: number // in ml
   }[]
-  // New field for manual ingredients
   manualIngredients?: {
     name: string
-    amount: number // Ensure amount is a number for calculation
+    amount: number // Changed from string to number
     instruction: string
   }[]
-  ingredients: string[] // For display purposes, combines automatic and manual
 }
