@@ -494,7 +494,7 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
 
   // Keyboard View - genau wie beim RecipeCreator
   const renderKeyboardView = () => (
-    <div className="space-y-4 my-4">
+    <div className="space-y-4 my-4 flex-1 flex flex-col"> {/* Removed h-[70vh], added flex-1 and flex-col */}
       <div className="flex items-center gap-3 mb-4">
         <Button
           variant="outline"
@@ -591,14 +591,16 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-black border-[hsl(var(--cocktail-card-border))] text-white sm:max-w-4xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="bg-black border-[hsl(var(--cocktail-card-border))] text-white sm:max-w-4xl max-h-[90vh] flex flex-col"> {/* Added flex flex-col */}
         <DialogHeader>
           <DialogTitle>Rezept bearbeiten: {cocktail.name}</DialogTitle>
         </DialogHeader>
 
-        {currentView === "form" && renderFormView()}
-        {currentView === "keyboard" && renderKeyboardView()}
-        {currentView === "imageBrowser" && renderImageBrowserView()}
+        <div className="flex-1 overflow-y-auto"> {/* Added flex-1 overflow-y-auto */}
+          {currentView === "form" && renderFormView()}
+          {currentView === "keyboard" && renderKeyboardView()}
+          {currentView === "imageBrowser" && renderImageBrowserView()}
+        </div>
 
         {currentView === "form" && (
           <DialogFooter className="flex justify-between items-center">
