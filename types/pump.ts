@@ -1,12 +1,10 @@
-export interface PumpConfig {
-  id: number
-  pin: number
-  ingredient: string
-  flowRate: number // ml pro Sekunde
-}
-
-export interface Ingredient {
+export interface Pump {
   id: string
   name: string
-  alcoholic: boolean
+  gpioPin: number
+}
+export interface PumpConfig {
+  id: string
+  name: string
+  gpioPin: number
 }
