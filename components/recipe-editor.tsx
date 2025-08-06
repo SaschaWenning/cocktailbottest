@@ -6,14 +6,12 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea" // Import Textarea
 import type { Cocktail } from "@/types/cocktail"
 import { ingredients } from "@/data/ingredients"
 import { saveRecipe } from "@/lib/cocktail-machine"
 import { Loader2, ImageIcon, Trash2, Plus, Minus, FolderOpen, ArrowLeft } from 'lucide-react'
 import VirtualKeyboard from "./virtual-keyboard"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs" // Import Tabs
 
 interface RecipeEditorProps {
   isOpen: boolean
@@ -50,8 +48,7 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
   const [description, setDescription] = useState("")
   const [imageUrl, setImageUrl] = useState("")
   const [alcoholic, setAlcoholic] = useState(true)
-  const [recipe, setRecipe] = useState<{ ingredientId: string; amount: number }[]>([])
-  const [manualIngredients, setManualIngredients] = useState<{ name: string; amount: number; instruction: string }[]>([])
+  const [recipe, setRecipe] = useState<{ ingredientId: string; amount: number; type: 'automatic' | 'manual'; instruction?: string }[]>([])
   const [saving, setSaving] = useState(false)
 
   // View states - genau wie beim RecipeCreator
@@ -65,8 +62,12 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
       setName(cocktail.name)
       setDescription(cocktail.description)
       setAlcoholic(cocktail.alcoholic)
-      setRecipe([...(cocktail.recipe || [])]) // Ensure recipe is an array
-      setManualIngredients([...(cocktail.manualIngredients || [])]) // Ensure manualIngredients is an array
+      // Map existing recipe to include 'type' and 'instruction' for backward compatibility
+      setRecipe(cocktail.recipe.map(item => ({
+        ...item,
+        type: item.type || 'automatic', // Default to 'automatic' if not present
+        instruction: item.instruction || '' // Default to empty string
+      })))
 
       // Normalize image path
       let imagePath = cocktail.image || ""
@@ -93,7 +94,6 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
         image: imagePath,
         alcoholic: cocktail.alcoholic,
         recipe: cocktail.recipe,
-        manualIngredients: cocktail.manualIngredients,
       })
     }
   }, [cocktail, isOpen])
@@ -101,7 +101,7 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
   if (!cocktail) return null
 
   // Keyboard handlers - genau wie beim RecipeCreator
-  const handleInputFocus = (inputType: string, currentValue = "") => {
+  const handleInputFocus = (inputType: string, currentValue = "", numeric = false) => {
     setActiveInput(inputType)
     setInputValue(currentValue)
     setCurrentView("keyboard")
@@ -114,36 +114,28 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
   const handleKeyboardConfirm = () => {
     if (!activeInput) return
 
-    if (activeInput === "name") {
-      setName(inputValue)
-    } else if (activeInput === "description") {
-      setDescription(inputValue)
-    } else if (activeInput === "imageUrl") {
-      setImageUrl(inputValue)
-    } else if (activeInput.startsWith("amount-auto-")) {
-      const index = Number.parseInt(activeInput.replace("amount-auto-", ""))
-      const amount = Number.parseFloat(inputValue)
-      if (!isNaN(amount) && amount >= 0) {
-        handleAutomaticAmountChange(index, amount)
-      }
-    } else if (activeInput.startsWith("manual-name-")) {
-      const index = Number.parseInt(activeInput.replace("manual-name-", ""))
-      const updatedManual = [...manualIngredients]
-      updatedManual[index] = { ...updatedManual[index], name: inputValue }
-      setManualIngredients(updatedManual)
-    } else if (activeInput.startsWith("manual-amount-")) {
-      const index = Number.parseInt(activeInput.replace("manual-amount-", ""))
-      const amount = Number.parseFloat(inputValue)
-      if (!isNaN(amount) && amount >= 0) {
-        const updatedManual = [...manualIngredients]
-        updatedManual[index] = { ...updatedManual[index], amount }
-        setManualIngredients(updatedManual)
-      }
-    } else if (activeInput.startsWith("manual-instruction-")) {
-      const index = Number.parseInt(activeInput.replace("manual-instruction-", ""))
-      const updatedManual = [...manualIngredients]
-      updatedManual[index] = { ...updatedManual[index], instruction: inputValue }
-      setManualIngredients(updatedManual)
+    switch (activeInput) {
+      case "name":
+        setName(inputValue)
+        break
+      case "description":
+        setDescription(inputValue)
+        break
+      case "imageUrl":
+        setImageUrl(inputValue)
+        break
+      default:
+        if (activeInput.startsWith("amount-")) {
+          const index = Number.parseInt(activeInput.replace("amount-", ""))
+          const amount = Number.parseFloat(inputValue)
+          if (!isNaN(amount) && amount >= 0) {
+            handleAmountChange(index, amount)
+          }
+        } else if (activeInput.startsWith("instruction-")) {
+          const index = Number.parseInt(activeInput.replace("instruction-", ""))
+          handleInstructionChange(index, inputValue)
+        }
+        break
     }
 
     setCurrentView("form")
@@ -157,45 +149,45 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
     setInputValue("")
   }
 
-  // Automatic recipe handlers
-  const handleAutomaticAmountChange = (index: number, amount: number) => {
+  // Recipe handlers
+  const handleAmountChange = (index: number, amount: number) => {
     const updatedRecipe = [...recipe]
     updatedRecipe[index] = { ...updatedRecipe[index], amount }
     setRecipe(updatedRecipe)
   }
 
-  const handleAutomaticIngredientChange = (index: number, ingredientId: string) => {
+  const handleIngredientChange = (index: number, ingredientId: string) => {
     const updatedRecipe = [...recipe]
     updatedRecipe[index] = { ...updatedRecipe[index], ingredientId }
     setRecipe(updatedRecipe)
   }
 
-  const addAutomaticIngredient = () => {
+  const handleTypeChange = (index: number, type: 'automatic' | 'manual') => {
+    const updatedRecipe = [...recipe]
+    updatedRecipe[index] = { ...updatedRecipe[index], type }
+    setRecipe(updatedRecipe)
+  }
+
+  const handleInstructionChange = (index: number, instruction: string) => {
+    const updatedRecipe = [...recipe]
+    updatedRecipe[index] = { ...updatedRecipe[index], instruction }
+    setRecipe(updatedRecipe)
+  }
+
+  const addIngredient = () => {
     const availableIngredients = ingredients.filter(
       (ingredient) => !recipe.some((item) => item.ingredientId === ingredient.id),
     )
 
     if (availableIngredients.length > 0) {
-      setRecipe([...recipe, { ingredientId: availableIngredients[0].id, amount: 30 }])
+      setRecipe([...recipe, { ingredientId: availableIngredients[0].id, amount: 30, type: 'automatic', instruction: '' }])
     }
   }
 
-  const removeAutomaticIngredient = (index: number) => {
-    if (recipe.length > 0) {
+  const removeIngredient = (index: number) => {
+    if (recipe.length > 1) {
       const updatedRecipe = recipe.filter((_, i) => i !== index)
       setRecipe(updatedRecipe)
-    }
-  }
-
-  // Manual recipe handlers
-  const addManualIngredient = () => {
-    setManualIngredients([...manualIngredients, { name: "", amount: 30, instruction: "" }])
-  }
-
-  const removeManualIngredient = (index: number) => {
-    if (manualIngredients.length > 0) {
-      const updatedManual = manualIngredients.filter((_, i) => i !== index)
-      setManualIngredients(updatedManual)
     }
   }
 
@@ -207,7 +199,7 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
 
   // Save handler
   const handleSave = async () => {
-    if (!cocktail || !name.trim() || (recipe.length === 0 && manualIngredients.length === 0)) return
+    if (!cocktail || !name.trim() || recipe.length === 0) return
 
     setSaving(true)
     try {
@@ -218,14 +210,11 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
         image: imageUrl || "/placeholder.svg?height=200&width=400",
         alcoholic,
         recipe: recipe,
-        manualIngredients: manualIngredients,
-        ingredients: [
-          ...recipe.map((item) => {
-            const ingredient = ingredients.find((i) => i.id === item.ingredientId)
-            return `${item.amount}ml ${ingredient?.name || item.ingredientId}`
-          }),
-          ...manualIngredients.map((item) => `${item.amount}ml ${item.name} (manuell)`),
-        ],
+        ingredients: recipe.map((item) => {
+          const ingredient = ingredients.find((i) => i.id === item.ingredientId)
+          const ingredientName = ingredient?.name || item.ingredientId
+          return `${item.amount}ml ${ingredientName} ${item.type === 'manual' ? '(manuell)' : ''}`
+        }),
       }
 
       await saveRecipe(updatedCocktail)
@@ -326,161 +315,96 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
         </div>
       </div>
 
-      {/* Zutaten Tabs */}
-      <Tabs defaultValue="automatic" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 bg-[hsl(var(--cocktail-card-bg))] border-[hsl(var(--cocktail-card-border))]">
-          <TabsTrigger
-            value="automatic"
-            className="data-[state=active]:bg-[hsl(var(--cocktail-primary))] data-[state=active]:text-black text-white"
+      {/* Zutaten */}
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <Label className="text-white">Zutaten</Label>
+          <Button
+            type="button"
+            size="sm"
+            onClick={addIngredient}
+            className="bg-[hsl(var(--cocktail-primary))] text-black hover:bg-[hsl(var(--cocktail-primary-hover))]"
+            disabled={recipe.length >= ingredients.length}
           >
-            Automatische Zutaten
-          </TabsTrigger>
-          <TabsTrigger
-            value="manual"
-            className="data-[state=active]:bg-[hsl(var(--cocktail-primary))] data-[state=active]:text-black text-white"
+            <Plus className="h-4 w-4 mr-1" />
+            Zutat hinzufügen
+          </Button>
+        </div>
+
+        {recipe.map((item, index) => (
+          <div
+            key={index}
+            className="grid grid-cols-12 gap-2 items-center p-3 bg-[hsl(var(--cocktail-card-bg))] rounded-lg border border-[hsl(var(--cocktail-card-border))]"
           >
-            Manuelle Zutaten
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="automatic" className="space-y-4 mt-4">
-          <div className="flex justify-between items-center">
-            <Label className="text-white">Automatische Zutaten</Label>
-            <Button
-              type="button"
-              size="sm"
-              onClick={addAutomaticIngredient}
-              className="bg-[hsl(var(--cocktail-primary))] text-black hover:bg-[hsl(var(--cocktail-primary-hover))]"
-              disabled={recipe.length >= ingredients.length}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Zutat hinzufügen
-            </Button>
-          </div>
-
-          {recipe.length === 0 && (
-            <p className="text-center text-gray-400">Füge automatische Zutaten hinzu, die von der Maschine gemischt werden.</p>
-          )}
-
-          {recipe.map((item, index) => (
-            <div
-              key={index}
-              className="grid grid-cols-12 gap-2 items-center p-3 bg-[hsl(var(--cocktail-card-bg))] rounded-lg border border-[hsl(var(--cocktail-card-border))]"
-            >
-              <div className="col-span-6">
-                <Select value={item.ingredientId} onValueChange={(value) => handleAutomaticIngredientChange(index, value)}>
-                  <SelectTrigger className="bg-white border-[hsl(var(--cocktail-card-border))] text-black">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border border-[hsl(var(--cocktail-card-border))] max-h-48 overflow-y-auto">
-                    {ingredients.map((ingredient) => (
-                      <SelectItem
-                        key={ingredient.id}
-                        value={ingredient.id}
-                        className="text-black hover:bg-gray-100 cursor-pointer"
-                      >
-                        {ingredient.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="col-span-3">
-                <Input
-                  type="text"
-                  value={item.amount}
-                  onClick={() => handleInputFocus(`amount-auto-${index}`, item.amount.toString())}
-                  readOnly
-                  className="bg-white border-[hsl(var(--cocktail-card-border))] text-black cursor-pointer text-center"
-                />
-              </div>
-              <div className="col-span-2 text-sm text-white">ml</div>
-              <div className="col-span-1">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => removeAutomaticIngredient(index)}
-                  className="h-8 w-8 p-0"
-                >
-                  <Minus className="h-4 w-4" />
-                </Button>
-              </div>
+            <div className="col-span-4">
+              <Select value={item.ingredientId} onValueChange={(value) => handleIngredientChange(index, value)}>
+                <SelectTrigger className="bg-white border-[hsl(var(--cocktail-card-border))] text-black">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white border border-[hsl(var(--cocktail-card-border))] max-h-48 overflow-y-auto">
+                  {ingredients.map((ingredient) => (
+                    <SelectItem
+                      key={ingredient.id}
+                      value={ingredient.id}
+                      className="text-black hover:bg-gray-100 cursor-pointer"
+                    >
+                      {ingredient.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          ))}
-        </TabsContent>
-        <TabsContent value="manual" className="space-y-4 mt-4">
-          <div className="flex justify-between items-center">
-            <Label className="text-white">Manuelle Zutaten</Label>
-            <Button
-              type="button"
-              size="sm"
-              onClick={addManualIngredient}
-              className="bg-[hsl(var(--cocktail-primary))] text-black hover:bg-[hsl(var(--cocktail-primary-hover))]"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Zutat hinzufügen
-            </Button>
-          </div>
-
-          {manualIngredients.length === 0 && (
-            <p className="text-center text-gray-400">Füge manuelle Zutaten hinzu, die nach der Zubereitung hinzugefügt werden.</p>
-          )}
-
-          {manualIngredients.map((item, index) => (
-            <div
-              key={index}
-              className="p-3 bg-[hsl(var(--cocktail-card-bg))] rounded-lg border border-[hsl(var(--cocktail-card-border))] space-y-2"
-            >
-              <div className="flex items-center justify-between">
-                <Label className="text-white">Zutat {index + 1}</Label>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => removeManualIngredient(index)}
-                  className="h-8 w-8 p-0"
-                >
-                  <Minus className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor={`manual-name-${index}`} className="text-white text-sm">Name</Label>
+            <div className="col-span-2">
+              <Input
+                type="text"
+                value={item.amount}
+                onClick={() => handleInputFocus(`amount-${index}`, item.amount.toString(), true)}
+                readOnly
+                className="bg-white border-[hsl(var(--cocktail-card-border))] text-black cursor-pointer text-center"
+              />
+            </div>
+            <div className="col-span-1 text-sm text-white">ml</div>
+            <div className="col-span-3">
+              <Select value={item.type} onValueChange={(value: 'automatic' | 'manual') => handleTypeChange(index, value)}>
+                <SelectTrigger className="bg-white border-[hsl(var(--cocktail-card-border))] text-black">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white border border-[hsl(var(--cocktail-card-border))]">
+                  <SelectItem value="automatic" className="text-black hover:bg-gray-100 cursor-pointer">
+                    Automatisch
+                  </SelectItem>
+                  <SelectItem value="manual" className="text-black hover:bg-gray-100 cursor-pointer">
+                    Manuell
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-1">
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                onClick={() => removeIngredient(index)}
+                disabled={recipe.length <= 1}
+                className="h-8 w-8 p-0"
+              >
+                <Minus className="h-4 w-4" />
+              </Button>
+            </div>
+            {item.type === 'manual' && (
+              <div className="col-span-12 mt-2">
                 <Input
-                  id={`manual-name-${index}`}
-                  value={item.name}
-                  onClick={() => handleInputFocus(`manual-name-${index}`, item.name)}
+                  value={item.instruction || ''}
+                  onClick={() => handleInputFocus(`instruction-${index}`, item.instruction || '', false)}
                   readOnly
                   className="bg-white border-[hsl(var(--cocktail-card-border))] text-black cursor-pointer"
-                  placeholder="z.B. Eiswürfel"
+                  placeholder="Anleitung (z.B. 'mit Eiswürfeln auffüllen')"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor={`manual-amount-${index}`} className="text-white text-sm">Menge (ml)</Label>
-                <Input
-                  id={`manual-amount-${index}`}
-                  type="text"
-                  value={item.amount}
-                  onClick={() => handleInputFocus(`manual-amount-${index}`, item.amount.toString())}
-                  readOnly
-                  className="bg-white border-[hsl(var(--cocktail-card-border))] text-black cursor-pointer"
-                  placeholder="z.B. 100"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor={`manual-instruction-${index}`} className="text-white text-sm">Anleitung</Label>
-                <Textarea
-                  id={`manual-instruction-${index}`}
-                  value={item.instruction}
-                  onClick={() => handleInputFocus(`manual-instruction-${index}`, item.instruction)}
-                  readOnly
-                  className="bg-white border-[hsl(var(--cocktail-card-border))] text-black cursor-pointer min-h-[60px]"
-                  placeholder="z.B. Im Glas mit Eiswürfeln servieren"
-                />
-              </div>
-            </div>
-          ))}
-        </TabsContent>
-      </Tabs>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   )
 
@@ -500,10 +424,8 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
           {activeInput === "name" && "Name eingeben"}
           {activeInput === "description" && "Beschreibung eingeben"}
           {activeInput === "imageUrl" && "Bild-URL eingeben"}
-          {activeInput?.startsWith("amount-auto-") && "Menge eingeben (ml)"}
-          {activeInput?.startsWith("manual-name-") && "Name der manuellen Zutat eingeben"}
-          {activeInput?.startsWith("manual-amount-") && "Menge der manuellen Zutat eingeben (ml)"}
-          {activeInput?.startsWith("manual-instruction-") && "Anleitung eingeben"}
+          {activeInput?.startsWith("amount-") && "Menge eingeben (ml)"}
+          {activeInput?.startsWith("instruction-") && "Anleitung eingeben"}
         </h3>
       </div>
 
@@ -519,22 +441,19 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
                 ? "Beschreibung..."
                 : activeInput === "imageUrl"
                   ? "https://..."
-                  : activeInput?.startsWith("amount-") || activeInput?.startsWith("manual-amount-")
+                  : activeInput?.startsWith("amount-")
                     ? "Menge in ml"
-                    : "Text eingeben..."
+                    : "Anleitung..."
           }
         />
       </div>
 
       <VirtualKeyboard
-        onKeyPress={handleKeyboardInput}
-        onBackspace={() => setInputValue((prev) => prev.slice(0, -1))}
-        onClear={() => setInputValue("")}
+        onInput={handleKeyboardInput}
         onConfirm={handleKeyboardConfirm}
         onCancel={handleKeyboardCancel}
-        layout={
-          activeInput?.startsWith("amount-") || activeInput?.startsWith("manual-amount-") ? "numeric" : "alphanumeric"
-        }
+        currentValue={inputValue}
+        inputType={activeInput?.startsWith("amount-") ? "numeric" : "text"}
       />
     </div>
   )
@@ -586,7 +505,7 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-black border-[hsl(var(--cocktail-card-border))] text-white sm:max-w-4xl max-h-[90vh] overflow-hidden">
+      <DialogContent className="bg-black border-[hsl(var(--cocktail-card-border))] text-white sm:max-w-md max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle>Rezept bearbeiten: {cocktail.name}</DialogTitle>
         </DialogHeader>
@@ -612,7 +531,7 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={saving || !name.trim() || (recipe.length === 0 && manualIngredients.length === 0)}
+                disabled={saving || !name.trim() || recipe.length === 0}
                 className="bg-[#00ff00] text-black hover:bg-[#00cc00]"
               >
                 {saving ? (

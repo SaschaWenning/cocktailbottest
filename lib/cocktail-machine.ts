@@ -1,65 +1,90 @@
 // lib/cocktail-machine.ts
+// Diese Datei enthält clientseitige Funktionen, die mit dem Backend interagieren oder Operationen simulieren.
 
-import type { Ingredient } from "./ingredient"
+import type { Cocktail } from "@/types/cocktail"
+import { ingredients } from "@/data/ingredients" // Annahme: Zutaten-Daten sind clientseitig verfügbar
+import type { PumpConfig } from "@/types/pump"
 
-export class CocktailMachine {
-  private pumps: { [ingredientName: string]: Pump } = {}
-  private ingredients: { [ingredientName: string]: Ingredient } = {}
+// Simuliert die Zubereitung eines Cocktails, indem Pumpen für automatische Zutaten "aktiviert" werden.
+// In einer echten Anwendung würde dies eine Server-API-Route aufrufen.
+export async function makeCocktail(cocktail: Cocktail, pumpConfig: PumpConfig[], selectedSize: number): Promise<void> {
+  const currentTotalVolume = cocktail.recipe.reduce((total, item) => total + item.amount, 0);
+  const scaleFactor = selectedSize / currentTotalVolume;
 
-  constructor() {
-    // Initialize pumps and ingredients here, or load from a configuration.
-  }
+  for (const item of cocktail.recipe) {
+    if (item.type === 'automatic') {
+      const amountToDispense = Math.round(item.amount * scaleFactor);
+      console.log(`Bereite vor, ${amountToDispense}ml von ${item.ingredientId} (automatisch) auszugeben`);
 
-  addPump(ingredientName: string, pump: Pump) {
-    this.pumps[ingredientName] = pump
-  }
+      const pumpInfo = pumpConfig.find(pc => pc.ingredientId === item.ingredientId);
+      if (!pumpInfo) {
+        console.warn(`Keine Pumpenkonfiguration für automatische Zutat gefunden: ${item.ingredientId}. Überspringe.`);
+        continue;
+      }
 
-  addIngredient(ingredient: Ingredient) {
-    this.ingredients[ingredient.name] = ingredient
-  }
+      const ingredientData = ingredients.find(ing => ing.id === item.ingredientId);
+      if (!ingredientData || ingredientData.flowRate === undefined) {
+        console.warn(`Durchflussrate für Zutat nicht gefunden: ${item.ingredientId}. Kann nicht ausgeben.`);
+        continue;
+      }
 
-  async dispense(ingredientName: string, amount: number): Promise<void> {
-    const pump = this.pumps[ingredientName]
-    const ingredient = this.ingredients[ingredientName]
+      const dispenseTimeMs = amountToDispense * ingredientData.flowRate;
+      console.log(`Simuliere Pumpenaktivierung für ${item.ingredientId} an GPIO Pin ${pumpInfo.gpioPin} für ${dispenseTimeMs}ms`);
 
-    if (!pump) {
-      throw new Error(`No pump configured for ingredient: ${ingredientName}`)
-    }
-
-    if (!ingredient) {
-      throw new Error(`No ingredient found: ${ingredientName}`)
-    }
-
-    const dispenseTimeMs = amount * ingredient.flowRate // Calculate dispense time based on flow rate
-
-    console.log(`Dispensing ${amount}ml of ${ingredientName} for ${dispenseTimeMs}ms`)
-    await pump.activatePump(dispenseTimeMs)
-  }
-
-  async createCocktail(recipe: { [ingredientName: string]: number }): Promise<void> {
-    for (const ingredientName in recipe) {
-      if (recipe.hasOwnProperty(ingredientName)) {
-        const amount = recipe[ingredientName]
-        await this.dispense(ingredientName, amount)
+      // Simuliere API-Aufruf zur Pumpenaktivierung
+      // In einer echten App: await fetch('/api/gpio/activate-pump', { method: 'POST', body: JSON.stringify({ pin: pumpInfo.gpioPin, duration: dispenseTimeMs }) });
+      await new Promise((resolve) => setTimeout(resolve, dispenseTimeMs));
+    } else {
+      console.log(`Manuelle Zutat: ${item.amount}ml ${item.ingredientId}. Benutzer wird hinzufügen.`);
+      if (item.instruction) {
+        console.log(`Anleitung für manuelle Zutat: ${item.instruction}`);
       }
     }
   }
-
-  // You might want to add methods for cleaning, calibration, etc.
 }
 
-export class Pump {
-  private gpioPin: number
+// Simuliert das Speichern eines Rezepts. In einer echten App würde dies eine Server-API-Route aufrufen.
+export async function saveRecipe(cocktail: Cocktail): Promise<void> {
+  console.log("Speichere Rezept (simuliert):", cocktail);
+  // In einer echten App: await fetch('/api/recipes', { method: 'POST', body: JSON.stringify(cocktail) });
+  return new Promise((resolve) => setTimeout(resolve, 500));
+}
 
-  constructor(gpioPin: number) {
-    this.gpioPin = gpioPin
-    // Initialize GPIO pin here (e.g., using a library like rpio or pigpio)
-    console.log(`Initializing pump on GPIO pin: ${gpioPin}`)
-  }
+// Simuliert das Löschen eines Rezepts. In einer echten App würde dies eine Server-API-Route aufrufen.
+export async function deleteRecipe(cocktailId: string): Promise<void> {
+  console.log("Lösche Rezept (simuliert):", cocktailId);
+  // In einer echten App: await fetch(`/api/recipes/${cocktailId}`, { method: 'DELETE' });
+  return new Promise((resolve) => setTimeout(resolve, 500));
+}
 
-  async activatePump(durationMs: number): Promise<void> {
-    // Activate the pump for the specified duration
-    console.log(`Activating pump on GPIO pin ${this.gpioPin} for ${durationMs}ms`)
-    return new Promise((resolve) => setTimeout(resolve, durationMs))
-  }
+// Simuliert das Abrufen aller Cocktails. In einer echten App würde dies eine Server-API-Route aufrufen.
+// Für v0 geben wir ein Mock-Cocktail zurück, der dem neuen Typ entspricht.
+export async function getAllCocktails(): Promise<Cocktail[]> {
+  console.log("Hole alle Cocktails (simuliert)");
+  return new Promise((resolve) => setTimeout(() => resolve([
+    {
+      id: "mock-cocktail-1",
+      name: "Mocktail mit Anleitung",
+      description: "Ein Test-Cocktail mit automatischen und manuellen Zutaten.",
+      image: "/placeholder.svg?height=200&width=400",
+      alcoholic: false,
+      ingredients: ["100ml Wasser (automatisch)", "50ml Sirup (automatisch)", "200ml Cola (manuell)"],
+      recipe: [
+        { ingredientId: "water", amount: 100, type: 'automatic', instruction: '' },
+        { ingredientId: "simple_syrup", amount: 50, type: 'automatic', instruction: '' },
+        { ingredientId: "cola", amount: 200, type: 'manual', instruction: 'Mit Cola auffüllen' },
+      ],
+    },
+  ]), 500));
+}
+
+// Simuliert das Abrufen der Pumpenkonfiguration. In einer echten App würde dies eine Server-API-Route aufrufen.
+// Für v0 geben wir eine Mock-Konfiguration zurück.
+export async function getPumpConfig(): Promise<PumpConfig[]> {
+  console.log("Hole Pumpenkonfiguration (simuliert)");
+  return new Promise((resolve) => setTimeout(() => resolve([
+    { ingredientId: "water", gpioPin: 17, flowRate: 100 },
+    { ingredientId: "simple_syrup", gpioPin: 27, flowRate: 50 },
+    // Weitere simulierte Pumpenkonfigurationen hier
+  ]), 500));
 }
