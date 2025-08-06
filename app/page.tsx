@@ -344,10 +344,17 @@ export default function Home() {
     // Prüfe nur automatische Zutaten auf Verfügbarkeit
     for (const item of automaticRecipe) {
       const level = ingredientLevels.find((level) => level.ingredientId === item.ingredientId)
-      if (!level) continue
+      const pump = pumpConfig.find((pc) => pc.ingredientId === item.ingredientId);
+
+      // Wenn keine Füllstandsdaten ODER keine Pumpenkonfiguration für eine automatische Zutat gefunden wird, ist sie nicht verfügbar
+      if (!level || !pump) {
+        console.warn(`Automatische Zutat ${item.ingredientId} ist nicht verfügbar (keine Füllstandsdaten oder Pumpenkonfiguration).`);
+        return false;
+      }
 
       const scaledAmount = Math.round(item.amount * scaleFactor); // Skaliere die Menge für diese Zutat
       if (level.currentAmount < scaledAmount) {
+        console.warn(`Nicht genügend ${item.ingredientId} vorhanden. Benötigt: ${scaledAmount}ml, Verfügbar: ${level.currentAmount}ml`);
         return false
       }
     }
@@ -608,7 +615,7 @@ export default function Home() {
                   <Alert className="bg-[hsl(var(--cocktail-error))]/10 border-[hsl(var(--cocktail-error))]/30 mb-6">
                     <AlertCircle className="h-4 w-4 text-[hsl(var(--cocktail-error))]" />
                     <AlertDescription className="text-[hsl(var(--cocktail-error))] text-sm">
-                      Nicht genügend Zutaten vorhanden! Bitte fülle die Zutaten nach.
+                      Nicht genügend Zutaten vorhanden oder Pumpe nicht angeschlossen! Bitte fülle die Zutaten nach.
                     </AlertDescription>
                   </Alert>
                 )}
