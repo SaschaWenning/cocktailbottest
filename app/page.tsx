@@ -65,7 +65,7 @@ export default function Home() {
 
   // Filtere Cocktails nach alkoholisch und nicht-alkoholisch
   const alcoholicCocktails = cocktailsData.filter((cocktail) => cocktail.alcoholic)
-  const virginCocktails = cocktailsData.filter((cocktail) => !cocktail.alcoholic)
+  const virginCocktails = cocktailsData.filter((cocktail) => cocktail.alcoholic === false) // Explicitly check for false
 
   // Berechne die Gesamtanzahl der Seiten
   const totalPages = Math.ceil(alcoholicCocktails.length / COCKTAILS_PER_PAGE)
@@ -246,11 +246,11 @@ export default function Home() {
     const cocktail = cocktailsData.find((c) => c.id === selectedCocktail)
     if (!cocktail) return
 
-    // Prevent making manual cocktails via machine
-    if (cocktail.manualIngredients && cocktail.manualIngredients.length > 0) {
+    // Nur fortfahren, wenn automatische Zutaten vorhanden sind
+    if (!cocktail.recipe || cocktail.recipe.length === 0) {
       toast({
-        title: "Manuelles Rezept",
-        description: "Dieses Rezept muss manuell zubereitet werden.",
+        title: "Keine automatischen Zutaten",
+        description: "Dieses Rezept enthält nur manuelle Zutaten und kann nicht von der Maschine zubereitet werden.",
         variant: "default",
       })
       return
@@ -278,11 +278,17 @@ export default function Home() {
       }, 300)
 
       // Starte den Cocktail-Herstellungsprozess mit der gewählten Größe und der aktuellen Pumpenkonfiguration
+      // makeCocktail wird nur die automatischen Zutaten verarbeiten
       await makeCocktail(cocktail, currentPumpConfig, selectedSize)
 
       clearInterval(intervalId)
       setProgress(100)
-      setStatusMessage(`${cocktail.name} (${selectedSize}ml) fertig!`)
+
+      let finalMessage = `${cocktail.name} (${selectedSize}ml) fertig!`
+      if (cocktail.manualIngredients && cocktail.manualIngredients.length > 0) {
+        finalMessage += " Bitte füge die manuellen Zutaten hinzu."
+      }
+      setStatusMessage(finalMessage)
       setShowSuccess(true)
 
       // Aktualisiere die Füllstände nach erfolgreicher Zubereitung
@@ -325,18 +331,16 @@ export default function Home() {
     const cocktail = cocktailsData.find((c) => c.id === selectedCocktail)
     if (!cocktail) return true
 
-    // If it's a manual recipe, ingredient availability check is not applicable for machine dispensing
-    // This check is only for automatic ingredients
+    // Diese Prüfung gilt nur für automatische Zutaten
     if (!cocktail.recipe || cocktail.recipe.length === 0) {
-      return true // No automatic ingredients, so no machine check needed
+      return true // Keine automatischen Zutaten, daher keine Maschinenprüfung erforderlich
     }
 
     // Skaliere das Rezept auf die gewünschte Größe
-    const currentTotalAutomaticVolume = cocktail.recipe.reduce((total, item) => total + item.amount, 0)
-    // If there are no automatic ingredients, scaling factor is not relevant for machine dispensing
-    if (currentTotalAutomaticVolume === 0) return true;
+    const currentTotalVolume = getCurrentVolume() // Gesamtvolumen (automatisch + manuell)
+    if (currentTotalVolume === 0) return true; // Vermeide Division durch Null
 
-    const scaleFactor = selectedSize / getCurrentVolume() // Scale based on total volume (automatic + manual)
+    const scaleFactor = selectedSize / currentTotalVolume
 
     const scaledRecipe = cocktail.recipe.map((item) => ({
       ...item,
@@ -606,7 +610,7 @@ export default function Home() {
                   <Alert className="bg-[hsl(var(--cocktail-warning))]/10 border-[hsl(var(--cocktail-warning))]/30 mb-6">
                     <AlertCircle className="h-4 w-4 text-[hsl(var(--cocktail-warning))]" />
                     <AlertDescription className="text-[hsl(var(--cocktail-warning))] text-sm">
-                      Dieses Rezept enthält manuelle Schritte und kann nicht vollständig von der Maschine zubereitet werden.
+                      Dieses Rezept enthält manuelle Schritte. Die Maschine bereitet den automatischen Teil zu.
                     </AlertDescription>
                   </Alert>
                 )}
