@@ -4,14 +4,17 @@ export interface Cocktail {
   description: string
   image: string
   alcoholic: boolean
-  ingredients: string[]
+  // Automatische Zutaten (für die Maschine)
   recipe: {
     ingredientId: string
     amount: number // in ml
   }[]
+  // Manuelle Zutaten (vom Benutzer hinzuzufügen)
   manualIngredients?: {
     name: string
-    amount: number // Changed from string to number
+    amount: number // Geändert von string zu number für Berechnungen
     instruction: string
   }[]
+  // Kombinierte Liste aller Zutaten für die Anzeige
+  ingredients: string[]
 }

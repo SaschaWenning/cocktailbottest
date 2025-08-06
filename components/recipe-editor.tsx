@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea" // Import Textarea for manual instruction
 import type { Cocktail } from "@/types/cocktail"
 import { ingredients } from "@/data/ingredients"
 import { saveRecipe } from "@/lib/cocktail-machine"
-import { Loader2, ImageIcon, Trash2, Plus, Minus, FolderOpen, ArrowLeft } from "lucide-react"
+import { Loader2, ImageIcon, Trash2, Plus, Minus, FolderOpen, ArrowLeft } from 'lucide-react'
 import VirtualKeyboard from "./virtual-keyboard"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
@@ -48,7 +49,8 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
   const [description, setDescription] = useState("")
   const [imageUrl, setImageUrl] = useState("")
   const [alcoholic, setAlcoholic] = useState(true)
-  const [recipe, setRecipe] = useState<{ ingredientId: string; amount: number }[]>([])
+  const [recipe, setRecipe] = useState<{ ingredientId: string; amount: number }[]>([]) // Automatic ingredients
+  const [manualIngredients, setManualIngredients] = useState<{ name: string; amount: number; instruction: string }[]>([]) // Manual ingredients
   const [saving, setSaving] = useState(false)
 
   // View states - genau wie beim RecipeCreator
@@ -62,7 +64,8 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
       setName(cocktail.name)
       setDescription(cocktail.description)
       setAlcoholic(cocktail.alcoholic)
-      setRecipe([...cocktail.recipe])
+      setRecipe([...(cocktail.recipe || [])]) // Ensure it's an array
+      setManualIngredients([...(cocktail.manualIngredients || [])]) // Ensure it's an array
 
       // Normalize image path
       let imagePath = cocktail.image || ""
@@ -89,6 +92,7 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
         image: imagePath,
         alcoholic: cocktail.alcoholic,
         recipe: cocktail.recipe,
+        manualIngredients: cocktail.manualIngredients,
       })
     }
   }, [cocktail, isOpen])
@@ -126,6 +130,18 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
           if (!isNaN(amount) && amount >= 0) {
             handleAmountChange(index, amount)
           }
+        } else if (activeInput.startsWith("manual-name-")) {
+          const index = Number.parseInt(activeInput.replace("manual-name-", ""))
+          handleManualNameChange(index, inputValue)
+        } else if (activeInput.startsWith("manual-amount-")) {
+          const index = Number.parseInt(activeInput.replace("manual-amount-", ""))
+          const amount = Number.parseFloat(inputValue)
+          if (!isNaN(amount) && amount >= 0) {
+            handleManualAmountChange(index, amount)
+          }
+        } else if (activeInput.startsWith("manual-instruction-")) {
+          const index = Number.parseInt(activeInput.replace("manual-instruction-", ""))
+          handleManualInstructionChange(index, inputValue)
         }
         break
     }
@@ -141,7 +157,7 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
     setInputValue("")
   }
 
-  // Recipe handlers
+  // Automatic Recipe handlers
   const handleAmountChange = (index: number, amount: number) => {
     const updatedRecipe = [...recipe]
     updatedRecipe[index] = { ...updatedRecipe[index], amount }
@@ -165,9 +181,39 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
   }
 
   const removeIngredient = (index: number) => {
-    if (recipe.length > 1) {
+    if (recipe.length > 0) {
       const updatedRecipe = recipe.filter((_, i) => i !== index)
       setRecipe(updatedRecipe)
+    }
+  }
+
+  // Manual Recipe handlers
+  const handleManualNameChange = (index: number, newName: string) => {
+    const updatedManualIngredients = [...manualIngredients]
+    updatedManualIngredients[index] = { ...updatedManualIngredients[index], name: newName }
+    setManualIngredients(updatedManualIngredients)
+  }
+
+  const handleManualAmountChange = (index: number, newAmount: number) => {
+    const updatedManualIngredients = [...manualIngredients]
+    updatedManualIngredients[index] = { ...updatedManualIngredients[index], amount: newAmount }
+    setManualIngredients(updatedManualIngredients)
+  }
+
+  const handleManualInstructionChange = (index: number, newInstruction: string) => {
+    const updatedManualIngredients = [...manualIngredients]
+    updatedManualIngredients[index] = { ...updatedManualIngredients[index], instruction: newInstruction }
+    setManualIngredients(updatedManualIngredients)
+  }
+
+  const addManualIngredient = () => {
+    setManualIngredients([...manualIngredients, { name: "", amount: 0, instruction: "" }])
+  }
+
+  const removeManualIngredient = (index: number) => {
+    if (manualIngredients.length > 0) {
+      const updatedManualIngredients = manualIngredients.filter((_, i) => i !== index)
+      setManualIngredients(updatedManualIngredients)
     }
   }
 
@@ -179,21 +225,29 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
 
   // Save handler
   const handleSave = async () => {
-    if (!cocktail || !name.trim() || recipe.length === 0) return
+    if (!cocktail || !name.trim() || (recipe.length === 0 && manualIngredients.length === 0)) return
 
     setSaving(true)
     try {
+      // Combine ingredients for the 'ingredients' display array
+      const combinedIngredients: string[] = []
+      recipe.forEach(item => {
+        const ingredient = ingredients.find(i => i.id === item.ingredientId)
+        combinedIngredients.push(`${item.amount}ml ${ingredient?.name || item.ingredientId}`)
+      })
+      manualIngredients.forEach(item => {
+        combinedIngredients.push(`${item.amount}ml ${item.name} (manuell)`)
+      })
+
       const updatedCocktail: Cocktail = {
         ...cocktail,
         name: name.trim(),
         description: description.trim(),
         image: imageUrl || "/placeholder.svg?height=200&width=400",
         alcoholic,
-        recipe: recipe,
-        ingredients: recipe.map((item) => {
-          const ingredient = ingredients.find((i) => i.id === item.ingredientId)
-          return `${item.amount}ml ${ingredient?.name || item.ingredientId}`
-        }),
+        recipe: recipe, // Automatic ingredients
+        manualIngredients: manualIngredients, // Manual ingredients
+        ingredients: combinedIngredients, // Combined for display
       }
 
       await saveRecipe(updatedCocktail)
@@ -294,10 +348,10 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
         </div>
       </div>
 
-      {/* Zutaten */}
+      {/* Automatische Zutaten */}
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <Label className="text-white">Zutaten</Label>
+          <Label className="text-white">Automatische Zutaten (Maschine)</Label>
           <Button
             type="button"
             size="sm"
@@ -349,11 +403,88 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
                 size="sm"
                 variant="destructive"
                 onClick={() => removeIngredient(index)}
-                disabled={recipe.length <= 1}
+                disabled={recipe.length === 0 && manualIngredients.length === 0}
                 className="h-8 w-8 p-0"
               >
                 <Minus className="h-4 w-4" />
               </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Manuelle Zutaten */}
+      <div className="space-y-4 mt-8">
+        <div className="flex justify-between items-center">
+          <Label className="text-white">Manuelle Zutaten (Nachbereitung)</Label>
+          <Button
+            type="button"
+            size="sm"
+            onClick={addManualIngredient}
+            className="bg-[hsl(var(--cocktail-primary))] text-black hover:bg-[hsl(var(--cocktail-primary-hover))]"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Manuelle Zutat
+          </Button>
+        </div>
+
+        {manualIngredients.map((item, index) => (
+          <div
+            key={`manual-${index}`}
+            className="p-3 bg-[hsl(var(--cocktail-card-bg))] rounded-lg border border-[hsl(var(--cocktail-card-border))] space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <Label className="text-white">Zutat {index + 1}</Label>
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                onClick={() => removeManualIngredient(index)}
+                disabled={recipe.length === 0 && manualIngredients.length === 0}
+                className="h-8 w-8 p-0"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`manual-name-${index}`} className="text-white text-sm">
+                Name
+              </Label>
+              <Input
+                id={`manual-name-${index}`}
+                value={item.name}
+                onClick={() => handleInputFocus(`manual-name-${index}`, item.name)}
+                readOnly
+                className="bg-white border-[hsl(var(--cocktail-card-border))] text-black cursor-pointer"
+                placeholder="z.B. Eiswürfel"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`manual-amount-${index}`} className="text-white text-sm">
+                Menge (ml)
+              </Label>
+              <Input
+                id={`manual-amount-${index}`}
+                type="text"
+                value={item.amount}
+                onClick={() => handleInputFocus(`manual-amount-${index}`, item.amount.toString())}
+                readOnly
+                className="bg-white border-[hsl(var(--cocktail-card-border))] text-black cursor-pointer text-center"
+                placeholder="z.B. 100"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`manual-instruction-${index}`} className="text-white text-sm">
+                Anleitung
+              </Label>
+              <Textarea
+                id={`manual-instruction-${index}`}
+                value={item.instruction}
+                onClick={() => handleInputFocus(`manual-instruction-${index}`, item.instruction)}
+                readOnly
+                className="bg-white border-[hsl(var(--cocktail-card-border))] text-black cursor-pointer min-h-[60px]"
+                placeholder="z.B. Im Shaker mit Eis schütteln"
+              />
             </div>
           </div>
         ))}
@@ -378,6 +509,9 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
           {activeInput === "description" && "Beschreibung eingeben"}
           {activeInput === "imageUrl" && "Bild-URL eingeben"}
           {activeInput?.startsWith("amount-") && "Menge eingeben (ml)"}
+          {activeInput?.startsWith("manual-name-") && "Manuelle Zutat Name"}
+          {activeInput?.startsWith("manual-amount-") && "Manuelle Zutat Menge (ml)"}
+          {activeInput?.startsWith("manual-instruction-") && "Manuelle Zutat Anleitung"}
         </h3>
       </div>
 
@@ -393,7 +527,9 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
                 ? "Beschreibung..."
                 : activeInput === "imageUrl"
                   ? "https://..."
-                  : "Menge in ml"
+                  : activeInput?.startsWith("amount-") || activeInput?.startsWith("manual-amount-")
+                    ? "Menge in ml"
+                    : "Text eingeben"
           }
         />
       </div>
@@ -403,7 +539,7 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
         onConfirm={handleKeyboardConfirm}
         onCancel={handleKeyboardCancel}
         currentValue={inputValue}
-        inputType={activeInput?.startsWith("amount-") ? "numeric" : "text"}
+        inputType={activeInput?.includes("amount-") ? "numeric" : "text"}
       />
     </div>
   )
@@ -455,7 +591,7 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-black border-[hsl(var(--cocktail-card-border))] text-white sm:max-w-md max-h-[90vh] overflow-hidden">
+      <DialogContent className="bg-black border-[hsl(var(--cocktail-card-border))] text-white sm:max-w-4xl max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle>Rezept bearbeiten: {cocktail.name}</DialogTitle>
         </DialogHeader>
@@ -481,7 +617,7 @@ export default function RecipeEditor({ isOpen, onClose, cocktail, onSave, onRequ
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={saving || !name.trim() || recipe.length === 0}
+                disabled={saving || (!name.trim() || (recipe.length === 0 && manualIngredients.length === 0))}
                 className="bg-[#00ff00] text-black hover:bg-[#00cc00]"
               >
                 {saving ? (
