@@ -9,7 +9,6 @@ let currentCocktails: Cocktail[] = defaultCocktails.map((cocktail) => ({
   ...cocktail,
   recipe: cocktail.recipe.map((item) => ({
     ...item,
-    type: (item as any).type || "automatic", // Ensure type is set for existing cocktails
     instruction: (item as any).instruction || "",
   })),
 }))
@@ -94,18 +93,19 @@ export const makeCocktail = async (
     const ingredient = ingredients.find((i) => i.id === item.ingredientId)
     const scaledAmount = Math.round(item.amount * scaleFactor)
 
-    if (item.type === "automatic") {
-      const pump = pumpConfig.find((p) => p.ingredientId === item.ingredientId)
+    if (!item.manual) {
+      // Wenn es NICHT manuell ist, ist es automatisch
+      const pump = pumpConfig.find((p) => p.ingredient === item.ingredientId)
 
       if (!pump) {
         throw new Error(`Pumpe für Zutat "${ingredient?.name || item.ingredientId}" nicht konfiguriert.`)
       }
 
-      const duration = (scaledAmount / pump.calibrationValue) * 1000 // ml / (ml/s) * 1000ms/s = ms
+      const duration = (scaledAmount / pump.flowRate) * 1000 // ml / (ml/s) * 1000ms/s = ms
       console.log(
-        `Dispensing ${scaledAmount}ml of ${ingredient?.name || item.ingredientId} using pump ${pump.pumpId} (GPIO ${pump.gpioPin}) for ${duration}ms`,
+        `Dispensing ${scaledAmount}ml of ${ingredient?.name || item.ingredientId} using pump ${pump.id} (GPIO ${pump.pin}) for ${duration}ms`,
       )
-      await simulateGpioControl(pump.gpioPin, duration)
+      await simulateGpioControl(pump.pin, duration)
     } else {
       console.log(
         `Manuelle Zutat: ${scaledAmount}ml ${ingredient?.name || item.ingredientId}. Anleitung: ${item.instruction || "Keine spezielle Anleitung."}`,
@@ -118,18 +118,19 @@ export const makeCocktail = async (
 
 // New function to activate a single pump for a duration
 export const activatePumpForDuration = async (
-  pumpId: string,
+  pumpId: string, // pumpId ist hier ein String, aber in PumpConfig ist es eine Nummer. Muss angepasst werden.
   durationMs: number,
   pumpConfig: PumpConfig[],
 ): Promise<void> => {
-  const pump = pumpConfig.find((p) => p.pumpId === pumpId)
+  const pump = pumpConfig.find((p) => p.id === Number.parseInt(pumpId)) // Konvertiere string zu number
+
   if (!pump) {
     throw new Error(`Pumpe mit ID "${pumpId}" nicht gefunden.`)
   }
 
-  console.log(`Aktivierung von Pumpe ${pump.pumpId} (GPIO ${pump.gpioPin}) für ${durationMs}ms`)
-  await simulateGpioControl(pump.gpioPin, durationMs)
-  console.log(`Pumpe ${pump.pumpId} deaktiviert.`)
+  console.log(`Aktivierung von Pumpe ${pump.id} (GPIO ${pump.pin}) für ${durationMs}ms`)
+  await simulateGpioControl(pump.pin, durationMs)
+  console.log(`Pumpe ${pump.id} deaktiviert.`)
 }
 
 // New function to make a single shot
@@ -138,16 +139,16 @@ export const makeSingleShot = async (
   amountMl: number,
   pumpConfig: PumpConfig[],
 ): Promise<void> => {
-  const pump = pumpConfig.find((p) => p.ingredientId === ingredientId)
+  const pump = pumpConfig.find((p) => p.ingredient === ingredientId)
   if (!pump) {
     throw new Error(`Pumpe für Zutat "${ingredientId}" nicht konfiguriert.`)
   }
 
-  const duration = (amountMl / pump.calibrationValue) * 1000 // ml / (ml/s) * 1000ms/s = ms
+  const duration = (amountMl / pump.flowRate) * 1000 // ml / (ml/s) * 1000ms/s = ms
   console.log(
-    `Zubereitung eines Shots: ${amountMl}ml ${ingredientId} (Pumpe ${pump.pumpId}, GPIO ${pump.gpioPin}) für ${duration}ms`,
+    `Zubereitung eines Shots: ${amountMl}ml ${ingredientId} (Pumpe ${pump.id}, GPIO ${pump.pin}) für ${duration}ms`,
   )
-  await simulateGpioControl(pump.gpioPin, duration)
+  await simulateGpioControl(pump.pin, duration)
   console.log(`Shot von ${ingredientId} fertig.`)
 }
 
@@ -163,23 +164,24 @@ export const savePumpConfig = async (config: PumpConfig[]): Promise<void> => {
 }
 
 export const calibratePump = async (pumpId: string, duration: number): Promise<void> => {
-  const pump = currentPumpConfig.find((p) => p.pumpId === pumpId)
+  // pumpId ist hier ein String, aber in PumpConfig ist es eine Nummer. Muss angepasst werden.
+  const pump = currentPumpConfig.find((p) => p.id === Number.parseInt(pumpId)) // Konvertiere string zu number
   if (!pump) {
     throw new Error(`Pumpe mit ID "${pumpId}" nicht gefunden.`)
   }
 
-  console.log(`Kalibrierung von Pumpe ${pump.pumpId} (GPIO ${pump.gpioPin}) für ${duration}ms`)
-  await simulateGpioControl(pump.gpioPin, duration)
-  console.log(`Kalibrierung von Pumpe ${pump.pumpId} abgeschlossen.`)
+  console.log(`Kalibrierung von Pumpe ${pump.id} (GPIO ${pump.pin}) für ${duration}ms`)
+  await simulateGpioControl(pump.pin, duration)
+  console.log(`Kalibrierung von Pumpe ${pump.id} abgeschlossen.`)
 }
 
 export const cleanPump = async (pumpId: number, duration: number): Promise<void> => {
-  const pump = currentPumpConfig.find((p) => p.pumpId === pumpId.toString())
+  const pump = currentPumpConfig.find((p) => p.id === pumpId)
   if (!pump) {
     throw new Error(`Pumpe mit ID "${pumpId}" nicht gefunden.`)
   }
 
-  console.log(`Reinigung von Pumpe ${pump.pumpId} (GPIO ${pump.gpioPin}) für ${duration}ms`)
-  await simulateGpioControl(pump.gpioPin, duration)
-  console.log(`Reinigung von Pumpe ${pump.pumpId} abgeschlossen.`)
+  console.log(`Reinigung von Pumpe ${pump.id} (GPIO ${pump.pin}) für ${duration}ms`)
+  await simulateGpioControl(pump.pin, duration)
+  console.log(`Reinigung von Pumpe ${pump.id} abgeschlossen.`)
 }
