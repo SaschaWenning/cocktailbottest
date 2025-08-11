@@ -343,8 +343,11 @@ export default function Home() {
 
     // Prüfe nur automatische Zutaten auf Verfügbarkeit
     for (const item of automaticRecipe) {
+      if (item.manual) {
+        continue // Überspringe manuelle Zutaten
+      }
+
       const level = ingredientLevels.find((level) => level.ingredientId === item.ingredientId)
-      // KORREKTUR: Suche nach 'ingredient' statt 'ingredientId' in der Pumpenkonfiguration
       const pump = pumpConfig.find((pc) => pc.ingredient === item.ingredientId)
 
       // Wenn keine Füllstandsdaten ODER keine Pumpenkonfiguration für eine automatische Zutat gefunden wird, ist sie nicht verfügbar
@@ -363,7 +366,6 @@ export default function Home() {
         return false
       }
     }
-
     return true
   }
 
