@@ -192,7 +192,7 @@ export const cocktails: Cocktail[] = [
       "15ml Vodka",
       "15ml Tequila",
       "30ml Limettensaft",
-      "150ml Cola (selbst hinzufügen)",
+      "150ml Cola",
     ],
     recipe: [
       { ingredientId: "dark-rum", amount: 15 },
@@ -200,7 +200,7 @@ export const cocktails: Cocktail[] = [
       { ingredientId: "vodka", amount: 15 },
       { ingredientId: "tequila", amount: 15 },
       { ingredientId: "lime-juice", amount: 30 },
-      // Cola wird manuell hinzugefügt
+      { ingredientId: "cola", amount: 150, manual: true, instructions: "150ml Cola hinzufügen" },
     ],
   },
   {
