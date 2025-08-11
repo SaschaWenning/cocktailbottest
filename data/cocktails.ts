@@ -51,7 +51,7 @@ export const cocktails: Cocktail[] = [
     recipe: [
       { ingredientId: "malibu", amount: 80 },
       { ingredientId: "pineapple-juice", amount: 150 },
-      // Cream of Coconut manuell hinzufügen
+      { ingredientId: "cream-of-coconut", amount: 50, manual: true, instructions: "50ml Cream of Coconut hinzufügen" },
     ],
   },
   {
@@ -137,47 +137,8 @@ export const cocktails: Cocktail[] = [
     recipe: [
       { ingredientId: "dark-rum", amount: 60 },
       { ingredientId: "lime-juice", amount: 60 },
-      { ingredientId: "sugar-syrup", amount: 20 },
-      { ingredientId: "soda-water", amount: 100 },
-      // Minze manuell hinzufügen
-    ],
-  },
-  {
-    id: "passion-colada",
-    name: "Passion Colada",
-    description: "Exotischer Cocktail mit Rum, Malibu und Maracuja",
-    image: "/images/cocktails/passion_colada.jpg",
-    alcoholic: true,
-    ingredients: ["40ml Rum", "40ml Malibu", "200ml Maracujasaft"],
-    recipe: [
-      { ingredientId: "dark-rum", amount: 40 },
-      { ingredientId: "malibu", amount: 40 },
-      { ingredientId: "passion-fruit-juice", amount: 200 },
-    ],
-  },
-  {
-    id: "gin-tonic",
-    name: "Gin & Tonic",
-    description: "Klassischer Longdrink mit Gin und Tonic Water",
-    image: "/images/cocktails/gin_tonic.jpg",
-    alcoholic: true,
-    ingredients: ["50ml Gin", "150ml Tonic Water", "Limettenscheibe"],
-    recipe: [
-      { ingredientId: "gin", amount: 50 },
-      { ingredientId: "tonic-water", amount: 150 },
-    ],
-  },
-  {
-    id: "cuba-libre",
-    name: "Cuba Libre",
-    description: "Rum-Cola mit einem Spritzer Limette",
-    image: "/images/cocktails/cuba_libre.jpg",
-    alcoholic: true,
-    ingredients: ["50ml brauner Rum", "150ml Cola", "10ml Limettensaft"],
-    recipe: [
-      { ingredientId: "dark-rum", amount: 50 },
-      { ingredientId: "cola", amount: 150 },
-      { ingredientId: "lime-juice", amount: 10 },
+      { ingredientId: "sugar-syrup", amount: 20, manual: true, instructions: "20ml Zuckersirup hinzufügen" },
+      { ingredientId: "soda-water", amount: 100, manual: true, instructions: "100ml Sodawasser hinzufügen" },
     ],
   },
   {
@@ -192,7 +153,7 @@ export const cocktails: Cocktail[] = [
       "15ml Vodka",
       "15ml Tequila",
       "30ml Limettensaft",
-      "150ml Cola (selbst hinzufügen)",
+      "150ml Cola (manuell hinzufügen)",
     ],
     recipe: [
       { ingredientId: "dark-rum", amount: 15 },
@@ -200,7 +161,7 @@ export const cocktails: Cocktail[] = [
       { ingredientId: "vodka", amount: 15 },
       { ingredientId: "tequila", amount: 15 },
       { ingredientId: "lime-juice", amount: 30 },
-      // Cola wird manuell hinzugefügt
+      { ingredientId: "cola", amount: 150, manual: true, instructions: "150ml Cola hinzufügen" },
     ],
   },
   {
@@ -237,7 +198,7 @@ export const cocktails: Cocktail[] = [
       { ingredientId: "vodka", amount: 60 },
       { ingredientId: "blue-curacao", amount: 30 },
       { ingredientId: "pineapple-juice", amount: 180 },
-      // Cream of Coconut manuell hinzufügen
+      { ingredientId: "cream-of-coconut", amount: 40, manual: true, instructions: "40ml Cream of Coconut hinzufügen" },
     ],
   },
   {
@@ -246,10 +207,10 @@ export const cocktails: Cocktail[] = [
     description: "Klassischer Cocktail mit Tequila, Orangensaft und Grenadine",
     image: "/images/cocktails/tequila_sunrise.jpg",
     alcoholic: true,
-    ingredients: ["60ml Tequila", "220ml Orangensaft", "20ml Grenadine"],
+    ingredients: ["50ml Tequila", "150ml Orangensaft", "20ml Grenadine"],
     recipe: [
-      { ingredientId: "tequila", amount: 60 },
-      { ingredientId: "orange-juice", amount: 220 },
+      { ingredientId: "tequila", amount: 50 },
+      { ingredientId: "orange-juice", amount: 150 },
       { ingredientId: "grenadine", amount: 20 },
     ],
   },
