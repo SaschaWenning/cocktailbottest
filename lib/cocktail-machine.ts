@@ -5,16 +5,16 @@ import { pumpConfig as defaultPumpConfig } from "@/data/pump-config"
 import { cocktails as defaultCocktails } from "@/data/cocktails"
 
 // In-memory storage for demonstration purposes
-let currentCocktails: Cocktail[] = defaultCocktails.map(cocktail => ({
+let currentCocktails: Cocktail[] = defaultCocktails.map((cocktail) => ({
   ...cocktail,
-  recipe: cocktail.recipe.map(item => ({
+  recipe: cocktail.recipe.map((item) => ({
     ...item,
-    type: (item as any).type || 'automatic', // Ensure type is set for existing cocktails
-    instruction: (item as any).instruction || ''
-  }))
-}));
+    type: (item as any).type || "automatic", // Ensure type is set for existing cocktails
+    instruction: (item as any).instruction || "",
+  })),
+}))
 
-let currentPumpConfig: PumpConfig[] = defaultPumpConfig;
+let currentPumpConfig: PumpConfig[] = defaultPumpConfig
 
 // Simulate GPIO control
 const simulateGpioControl = async (pin: number, duration: number) => {
@@ -94,7 +94,7 @@ export const makeCocktail = async (
     const ingredient = ingredients.find((i) => i.id === item.ingredientId)
     const scaledAmount = Math.round(item.amount * scaleFactor)
 
-    if (item.type === 'automatic') {
+    if (item.type === "automatic") {
       const pump = pumpConfig.find((p) => p.ingredientId === item.ingredientId)
 
       if (!pump) {
@@ -107,7 +107,9 @@ export const makeCocktail = async (
       )
       await simulateGpioControl(pump.gpioPin, duration)
     } else {
-      console.log(`Manuelle Zutat: ${scaledAmount}ml ${ingredient?.name || item.ingredientId}. Anleitung: ${item.instruction || 'Keine spezielle Anleitung.'}`);
+      console.log(
+        `Manuelle Zutat: ${scaledAmount}ml ${ingredient?.name || item.ingredientId}. Anleitung: ${item.instruction || "Keine spezielle Anleitung."}`,
+      )
     }
   }
 
@@ -118,31 +120,66 @@ export const makeCocktail = async (
 export const activatePumpForDuration = async (
   pumpId: string,
   durationMs: number,
-  pumpConfig: PumpConfig[]
+  pumpConfig: PumpConfig[],
 ): Promise<void> => {
-  const pump = pumpConfig.find(p => p.pumpId === pumpId);
+  const pump = pumpConfig.find((p) => p.pumpId === pumpId)
   if (!pump) {
-    throw new Error(`Pumpe mit ID "${pumpId}" nicht gefunden.`);
+    throw new Error(`Pumpe mit ID "${pumpId}" nicht gefunden.`)
   }
 
-  console.log(`Aktivierung von Pumpe ${pump.pumpId} (GPIO ${pump.gpioPin}) für ${durationMs}ms`);
-  await simulateGpioControl(pump.gpioPin, durationMs);
-  console.log(`Pumpe ${pump.pumpId} deaktiviert.`);
-};
+  console.log(`Aktivierung von Pumpe ${pump.pumpId} (GPIO ${pump.gpioPin}) für ${durationMs}ms`)
+  await simulateGpioControl(pump.gpioPin, durationMs)
+  console.log(`Pumpe ${pump.pumpId} deaktiviert.`)
+}
 
 // New function to make a single shot
 export const makeSingleShot = async (
   ingredientId: string,
   amountMl: number,
-  pumpConfig: PumpConfig[]
+  pumpConfig: PumpConfig[],
 ): Promise<void> => {
-  const pump = pumpConfig.find(p => p.ingredientId === ingredientId);
+  const pump = pumpConfig.find((p) => p.ingredientId === ingredientId)
   if (!pump) {
-    throw new Error(`Pumpe für Zutat "${ingredientId}" nicht konfiguriert.`);
+    throw new Error(`Pumpe für Zutat "${ingredientId}" nicht konfiguriert.`)
   }
 
-  const duration = (amountMl / pump.calibrationValue) * 1000; // ml / (ml/s) * 1000ms/s = ms
-  console.log(`Zubereitung eines Shots: ${amountMl}ml ${ingredientId} (Pumpe ${pump.pumpId}, GPIO ${pump.gpioPin}) für ${duration}ms`);
-  await simulateGpioControl(pump.gpioPin, duration);
-  console.log(`Shot von ${ingredientId} fertig.`);
-};
+  const duration = (amountMl / pump.calibrationValue) * 1000 // ml / (ml/s) * 1000ms/s = ms
+  console.log(
+    `Zubereitung eines Shots: ${amountMl}ml ${ingredientId} (Pumpe ${pump.pumpId}, GPIO ${pump.gpioPin}) für ${duration}ms`,
+  )
+  await simulateGpioControl(pump.gpioPin, duration)
+  console.log(`Shot von ${ingredientId} fertig.`)
+}
+
+// Added functions
+export const savePumpConfig = async (config: PumpConfig[]): Promise<void> => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      currentPumpConfig = config
+      console.log("Pump configuration saved (simulated)")
+      resolve()
+    }, 300)
+  })
+}
+
+export const calibratePump = async (pumpId: string, duration: number): Promise<void> => {
+  const pump = currentPumpConfig.find((p) => p.pumpId === pumpId)
+  if (!pump) {
+    throw new Error(`Pumpe mit ID "${pumpId}" nicht gefunden.`)
+  }
+
+  console.log(`Kalibrierung von Pumpe ${pump.pumpId} (GPIO ${pump.gpioPin}) für ${duration}ms`)
+  await simulateGpioControl(pump.gpioPin, duration)
+  console.log(`Kalibrierung von Pumpe ${pump.pumpId} abgeschlossen.`)
+}
+
+export const cleanPump = async (pumpId: number, duration: number): Promise<void> => {
+  const pump = currentPumpConfig.find((p) => p.pumpId === pumpId.toString())
+  if (!pump) {
+    throw new Error(`Pumpe mit ID "${pumpId}" nicht gefunden.`)
+  }
+
+  console.log(`Reinigung von Pumpe ${pump.pumpId} (GPIO ${pump.gpioPin}) für ${duration}ms`)
+  await simulateGpioControl(pump.gpioPin, duration)
+  console.log(`Reinigung von Pumpe ${pump.pumpId} abgeschlossen.`)
+}
