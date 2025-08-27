@@ -83,29 +83,21 @@ const controlGpio = async (pin: number, duration: number) => {
   console.log(`Aktiviere GPIO Pin ${pin} für ${duration}ms`)
 
   try {
-    // Echte GPIO-Steuerung für Raspberry Pi
-    if (typeof window === "undefined") {
-      // Server-side: Echte GPIO-Steuerung
-      const response = await fetch("/api/gpio", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin, duration, action: "activate" }),
-      })
+    // Client-side: API-Aufruf an Server
+    const response = await fetch("/api/gpio", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin, duration, action: "activate" }),
+    })
 
-      if (!response.ok) {
-        throw new Error(`GPIO-Steuerung fehlgeschlagen: ${response.statusText}`)
-      }
-    } else {
-      // Client-side: API-Aufruf an Server
-      const response = await fetch("/api/gpio", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin, duration, action: "activate" }),
-      })
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`GPIO-Steuerung fehlgeschlagen: ${response.statusText} - ${errorText}`)
+    }
 
-      if (!response.ok) {
-        throw new Error(`GPIO-Steuerung fehlgeschlagen: ${response.statusText}`)
-      }
+    const result = await response.json()
+    if (!result.success) {
+      throw new Error(`GPIO-Steuerung fehlgeschlagen: ${result.error}`)
     }
 
     console.log(`GPIO Pin ${pin} erfolgreich für ${duration}ms aktiviert`)
