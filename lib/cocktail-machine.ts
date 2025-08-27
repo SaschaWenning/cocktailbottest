@@ -72,8 +72,8 @@ let currentCocktails: Cocktail[] = loadCocktailsFromStorage().map((cocktail) => 
   ...cocktail,
   recipe: cocktail.recipe.map((item) => ({
     ...item,
-    type: (item as any).type || "automatic",
-    instruction: (item as any).instruction || "",
+    type: (item as any).type || (item.manual ? "manual" : "automatic"),
+    instruction: (item as any).instruction || (item as any).instructions || "",
   })),
 }))
 
@@ -148,40 +148,48 @@ export const makeCocktail = async (
   pumpConfig: PumpConfig[],
   selectedSize: number,
 ): Promise<void> => {
-  console.log(`Starting to make cocktail: ${cocktail.name} (${selectedSize}ml)`)
+  console.log(`[v0] Starting to make cocktail: ${cocktail.name} (${selectedSize}ml)`)
+  console.log(`[v0] Recipe items:`, cocktail.recipe)
+  console.log(`[v0] Available pump config:`, pumpConfig)
 
   const totalRecipeVolume = cocktail.recipe.reduce((total, item) => total + item.amount, 0)
   if (totalRecipeVolume === 0) {
     throw new Error("Rezept hat keine Zutaten oder Gesamtvolumen ist Null.")
   }
   const scaleFactor = selectedSize / totalRecipeVolume
+  console.log(`[v0] Scale factor: ${scaleFactor}`)
 
   for (const item of cocktail.recipe) {
     const ingredient = ingredients.find((i) => i.id === item.ingredientId)
     const scaledAmount = Math.round(item.amount * scaleFactor)
 
     const isManual = item.manual === true || item.type === "manual"
+    console.log(
+      `[v0] Processing ingredient: ${item.ingredientId}, manual: ${item.manual}, type: ${item.type}, isManual: ${isManual}`,
+    )
 
     if (!isManual) {
       const pump = pumpConfig.find((p) => p.ingredient === item.ingredientId)
+      console.log(`[v0] Looking for pump with ingredient: ${item.ingredientId}, found:`, pump)
 
       if (!pump) {
+        console.log(`[v0] ERROR: No pump found for ingredient: ${item.ingredientId}`)
         throw new Error(`Pumpe für Zutat "${ingredient?.name || item.ingredientId}" nicht konfiguriert.`)
       }
 
       const duration = (scaledAmount / pump.calibrationValue) * 1000 // ml / (ml/s) * 1000ms/s = ms
       console.log(
-        `Dispensing ${scaledAmount}ml of ${ingredient?.name || item.ingredientId} using pump ${pump.pumpId} (GPIO ${pump.gpioPin}) for ${duration}ms`,
+        `[v0] Dispensing ${scaledAmount}ml of ${ingredient?.name || item.ingredientId} using pump ${pump.pumpId} (GPIO ${pump.gpioPin}) for ${duration}ms`,
       )
       await simulateGpioControl(pump.gpioPin, duration)
     } else {
       console.log(
-        `Manuelle Zutat: ${scaledAmount}ml ${ingredient?.name || item.ingredientId}. Anleitung: ${item.instruction || item.instructions || "Keine spezielle Anleitung."}`,
+        `[v0] Manual ingredient: ${scaledAmount}ml ${ingredient?.name || item.ingredientId}. Instruction: ${item.instruction || item.instructions || "Keine spezielle Anleitung."}`,
       )
     }
   }
 
-  console.log(`Finished making cocktail: ${cocktail.name}`)
+  console.log(`[v0] Finished making cocktail: ${cocktail.name}`)
 }
 
 // New function to activate a single pump for a duration
