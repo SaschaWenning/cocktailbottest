@@ -4,17 +4,80 @@ import { ingredients } from "@/data/ingredients"
 import { pumpConfig as defaultPumpConfig } from "@/data/pump-config"
 import { cocktails as defaultCocktails } from "@/data/cocktails"
 
-// In-memory storage for demonstration purposes
-let currentCocktails: Cocktail[] = defaultCocktails.map((cocktail) => ({
+const COCKTAILS_STORAGE_KEY = "cocktailbot-cocktails"
+const PUMP_CONFIG_STORAGE_KEY = "cocktailbot-pump-config"
+
+// Lade Cocktails aus localStorage oder verwende Standard-Cocktails
+const loadCocktailsFromStorage = (): Cocktail[] => {
+  if (typeof window === "undefined") return defaultCocktails // Server-side rendering
+
+  try {
+    const stored = localStorage.getItem(COCKTAILS_STORAGE_KEY)
+    if (stored) {
+      const parsedCocktails = JSON.parse(stored)
+      console.log("Cocktails aus localStorage geladen:", parsedCocktails.length)
+      return parsedCocktails
+    }
+  } catch (error) {
+    console.error("Fehler beim Laden der Cocktails aus localStorage:", error)
+  }
+
+  console.log("Standard-Cocktails werden verwendet")
+  return defaultCocktails
+}
+
+// Speichere Cocktails in localStorage
+const saveCocktailsToStorage = (cocktails: Cocktail[]) => {
+  if (typeof window === "undefined") return // Server-side rendering
+
+  try {
+    localStorage.setItem(COCKTAILS_STORAGE_KEY, JSON.stringify(cocktails))
+    console.log("Cocktails in localStorage gespeichert:", cocktails.length)
+  } catch (error) {
+    console.error("Fehler beim Speichern der Cocktails in localStorage:", error)
+  }
+}
+
+// Lade Pumpenkonfiguration aus localStorage oder verwende Standard-Konfiguration
+const loadPumpConfigFromStorage = (): PumpConfig[] => {
+  if (typeof window === "undefined") return defaultPumpConfig // Server-side rendering
+
+  try {
+    const stored = localStorage.getItem(PUMP_CONFIG_STORAGE_KEY)
+    if (stored) {
+      const parsedConfig = JSON.parse(stored)
+      console.log("Pumpenkonfiguration aus localStorage geladen")
+      return parsedConfig
+    }
+  } catch (error) {
+    console.error("Fehler beim Laden der Pumpenkonfiguration aus localStorage:", error)
+  }
+
+  return defaultPumpConfig
+}
+
+// Speichere Pumpenkonfiguration in localStorage
+const savePumpConfigToStorage = (config: PumpConfig[]) => {
+  if (typeof window === "undefined") return // Server-side rendering
+
+  try {
+    localStorage.setItem(PUMP_CONFIG_STORAGE_KEY, JSON.stringify(config))
+    console.log("Pumpenkonfiguration in localStorage gespeichert")
+  } catch (error) {
+    console.error("Fehler beim Speichern der Pumpenkonfiguration in localStorage:", error)
+  }
+}
+
+let currentCocktails: Cocktail[] = loadCocktailsFromStorage().map((cocktail) => ({
   ...cocktail,
   recipe: cocktail.recipe.map((item) => ({
     ...item,
-    type: (item as any).type || "automatic", // Ensure type is set for existing cocktails
+    type: (item as any).type || "automatic",
     instruction: (item as any).instruction || "",
   })),
 }))
 
-let currentPumpConfig: PumpConfig[] = defaultPumpConfig
+let currentPumpConfig: PumpConfig[] = loadPumpConfigFromStorage()
 
 // Simulate GPIO control
 const simulateGpioControl = async (pin: number, duration: number) => {
@@ -52,6 +115,7 @@ export const saveRecipe = async (cocktail: Cocktail): Promise<void> => {
         currentCocktails.push(cocktail)
         console.log(`Cocktail "${cocktail.name}" added (simulated)`)
       }
+      saveCocktailsToStorage(currentCocktails)
       resolve()
     }, 500)
   })
@@ -62,6 +126,7 @@ export const deleteRecipe = async (cocktailId: string): Promise<void> => {
     setTimeout(() => {
       currentCocktails = currentCocktails.filter((c) => c.id !== cocktailId)
       console.log(`Cocktail with ID "${cocktailId}" deleted (simulated)`)
+      saveCocktailsToStorage(currentCocktails)
       resolve()
     }, 300)
   })
@@ -72,6 +137,7 @@ export const updatePumpConfig = async (config: PumpConfig[]): Promise<void> => {
     setTimeout(() => {
       currentPumpConfig = config
       console.log("Pump configuration updated (simulated)")
+      savePumpConfigToStorage(currentPumpConfig)
       resolve()
     }, 300)
   })
@@ -157,6 +223,7 @@ export const savePumpConfig = async (config: PumpConfig[]): Promise<void> => {
     setTimeout(() => {
       currentPumpConfig = config
       console.log("Pump configuration saved (simulated)")
+      savePumpConfigToStorage(currentPumpConfig)
       resolve()
     }, 300)
   })
