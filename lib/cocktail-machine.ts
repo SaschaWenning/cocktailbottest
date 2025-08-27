@@ -4,109 +4,22 @@ import { ingredients } from "@/data/ingredients"
 import { pumpConfig as defaultPumpConfig } from "@/data/pump-config"
 import { cocktails as defaultCocktails } from "@/data/cocktails"
 
-const COCKTAILS_STORAGE_KEY = "cocktailbot-cocktails"
-const PUMP_CONFIG_STORAGE_KEY = "cocktailbot-pump-config"
-
-// Lade Cocktails aus localStorage oder verwende Standard-Cocktails
-const loadCocktailsFromStorage = (): Cocktail[] => {
-  if (typeof window === "undefined") return defaultCocktails // Server-side rendering
-
-  try {
-    const stored = localStorage.getItem(COCKTAILS_STORAGE_KEY)
-    if (stored) {
-      const parsedCocktails = JSON.parse(stored)
-      console.log("Cocktails aus localStorage geladen:", parsedCocktails.length)
-      return parsedCocktails
-    }
-  } catch (error) {
-    console.error("Fehler beim Laden der Cocktails aus localStorage:", error)
-  }
-
-  console.log("Standard-Cocktails werden verwendet")
-  return defaultCocktails
-}
-
-// Speichere Cocktails in localStorage
-const saveCocktailsToStorage = (cocktails: Cocktail[]) => {
-  if (typeof window === "undefined") return // Server-side rendering
-
-  try {
-    localStorage.setItem(COCKTAILS_STORAGE_KEY, JSON.stringify(cocktails))
-    console.log("Cocktails in localStorage gespeichert:", cocktails.length)
-  } catch (error) {
-    console.error("Fehler beim Speichern der Cocktails in localStorage:", error)
-  }
-}
-
-// Lade Pumpenkonfiguration aus localStorage oder verwende Standard-Konfiguration
-const loadPumpConfigFromStorage = (): PumpConfig[] => {
-  if (typeof window === "undefined") return defaultPumpConfig // Server-side rendering
-
-  try {
-    const stored = localStorage.getItem(PUMP_CONFIG_STORAGE_KEY)
-    if (stored) {
-      const parsedConfig = JSON.parse(stored)
-      console.log("Pumpenkonfiguration aus localStorage geladen")
-      return parsedConfig
-    }
-  } catch (error) {
-    console.error("Fehler beim Laden der Pumpenkonfiguration aus localStorage:", error)
-  }
-
-  return defaultPumpConfig
-}
-
-// Speichere Pumpenkonfiguration in localStorage
-const savePumpConfigToStorage = (config: PumpConfig[]) => {
-  if (typeof window === "undefined") return // Server-side rendering
-
-  try {
-    localStorage.setItem(PUMP_CONFIG_STORAGE_KEY, JSON.stringify(config))
-    console.log("Pumpenkonfiguration in localStorage gespeichert")
-  } catch (error) {
-    console.error("Fehler beim Speichern der Pumpenkonfiguration in localStorage:", error)
-  }
-}
-
-let currentCocktails: Cocktail[] = loadCocktailsFromStorage().map((cocktail) => ({
+// In-memory storage for demonstration purposes
+let currentCocktails: Cocktail[] = defaultCocktails.map((cocktail) => ({
   ...cocktail,
   recipe: cocktail.recipe.map((item) => ({
     ...item,
-    type: (item as any).type || (item.manual ? "manual" : "automatic"),
-    instruction: (item as any).instruction || (item as any).instructions || "",
+    type: (item as any).type || "automatic", // Ensure type is set for existing cocktails
+    instruction: (item as any).instruction || "",
   })),
 }))
 
-let currentPumpConfig: PumpConfig[] = loadPumpConfigFromStorage()
+let currentPumpConfig: PumpConfig[] = defaultPumpConfig
 
-const controlGpio = async (pin: number, duration: number) => {
-  console.log(`Aktiviere GPIO Pin ${pin} für ${duration}ms`)
-
-  try {
-    // Client-side: API-Aufruf an Server
-    const response = await fetch("/api/gpio", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pin, duration, action: "activate" }),
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`GPIO-Steuerung fehlgeschlagen: ${response.statusText} - ${errorText}`)
-    }
-
-    const result = await response.json()
-    if (!result.success) {
-      throw new Error(`GPIO-Steuerung fehlgeschlagen: ${result.error}`)
-    }
-
-    console.log(`GPIO Pin ${pin} erfolgreich für ${duration}ms aktiviert`)
-  } catch (error) {
-    console.error(`Fehler bei GPIO-Steuerung Pin ${pin}:`, error)
-    // Fallback zur Simulation bei Fehlern
-    console.log(`Fallback: Simuliere GPIO Pin ${pin} für ${duration}ms`)
-    await new Promise((resolve) => setTimeout(resolve, duration))
-  }
+// Simulate GPIO control
+const simulateGpioControl = async (pin: number, duration: number) => {
+  console.log(`Simulating GPIO pin ${pin} ON for ${duration}ms`)
+  return new Promise((resolve) => setTimeout(resolve, duration))
 }
 
 // Simulate API calls
@@ -139,7 +52,6 @@ export const saveRecipe = async (cocktail: Cocktail): Promise<void> => {
         currentCocktails.push(cocktail)
         console.log(`Cocktail "${cocktail.name}" added (simulated)`)
       }
-      saveCocktailsToStorage(currentCocktails)
       resolve()
     }, 500)
   })
@@ -150,7 +62,6 @@ export const deleteRecipe = async (cocktailId: string): Promise<void> => {
     setTimeout(() => {
       currentCocktails = currentCocktails.filter((c) => c.id !== cocktailId)
       console.log(`Cocktail with ID "${cocktailId}" deleted (simulated)`)
-      saveCocktailsToStorage(currentCocktails)
       resolve()
     }, 300)
   })
@@ -161,7 +72,6 @@ export const updatePumpConfig = async (config: PumpConfig[]): Promise<void> => {
     setTimeout(() => {
       currentPumpConfig = config
       console.log("Pump configuration updated (simulated)")
-      savePumpConfigToStorage(currentPumpConfig)
       resolve()
     }, 300)
   })
@@ -172,48 +82,38 @@ export const makeCocktail = async (
   pumpConfig: PumpConfig[],
   selectedSize: number,
 ): Promise<void> => {
-  console.log(`[v0] Starting to make cocktail: ${cocktail.name} (${selectedSize}ml)`)
-  console.log(`[v0] Recipe items:`, cocktail.recipe)
-  console.log(`[v0] Available pump config:`, pumpConfig)
+  console.log(`Starting to make cocktail: ${cocktail.name} (${selectedSize}ml)`)
 
   const totalRecipeVolume = cocktail.recipe.reduce((total, item) => total + item.amount, 0)
   if (totalRecipeVolume === 0) {
     throw new Error("Rezept hat keine Zutaten oder Gesamtvolumen ist Null.")
   }
   const scaleFactor = selectedSize / totalRecipeVolume
-  console.log(`[v0] Scale factor: ${scaleFactor}`)
 
   for (const item of cocktail.recipe) {
     const ingredient = ingredients.find((i) => i.id === item.ingredientId)
     const scaledAmount = Math.round(item.amount * scaleFactor)
 
-    const isManual = item.manual === true || item.type === "manual"
-    console.log(
-      `[v0] Processing ingredient: ${item.ingredientId}, manual: ${item.manual}, type: ${item.type}, isManual: ${isManual}`,
-    )
-
-    if (!isManual) {
-      const pump = pumpConfig.find((p) => p.ingredient === item.ingredientId)
-      console.log(`[v0] Looking for pump with ingredient: ${item.ingredientId}, found:`, pump)
+    if (item.type === "automatic") {
+      const pump = pumpConfig.find((p) => p.ingredientId === item.ingredientId)
 
       if (!pump) {
-        console.log(`[v0] ERROR: No pump found for ingredient: ${item.ingredientId}`)
         throw new Error(`Pumpe für Zutat "${ingredient?.name || item.ingredientId}" nicht konfiguriert.`)
       }
 
-      const duration = (scaledAmount / pump.flowRate) * 1000 // ml / (ml/s) * 1000ms/s = ms
+      const duration = (scaledAmount / pump.calibrationValue) * 1000 // ml / (ml/s) * 1000ms/s = ms
       console.log(
-        `[v0] Dispensing ${scaledAmount}ml of ${ingredient?.name || item.ingredientId} using pump ${pump.id} (GPIO ${pump.pin}) for ${duration}ms`,
+        `Dispensing ${scaledAmount}ml of ${ingredient?.name || item.ingredientId} using pump ${pump.pumpId} (GPIO ${pump.gpioPin}) for ${duration}ms`,
       )
-      await controlGpio(pump.pin, duration)
+      await simulateGpioControl(pump.gpioPin, duration)
     } else {
       console.log(
-        `[v0] Manual ingredient: ${scaledAmount}ml ${ingredient?.name || item.ingredientId}. Instruction: ${item.instruction || item.instructions || "Keine spezielle Anleitung."}`,
+        `Manuelle Zutat: ${scaledAmount}ml ${ingredient?.name || item.ingredientId}. Anleitung: ${item.instruction || "Keine spezielle Anleitung."}`,
       )
     }
   }
 
-  console.log(`[v0] Finished making cocktail: ${cocktail.name}`)
+  console.log(`Finished making cocktail: ${cocktail.name}`)
 }
 
 // New function to activate a single pump for a duration
@@ -222,14 +122,14 @@ export const activatePumpForDuration = async (
   durationMs: number,
   pumpConfig: PumpConfig[],
 ): Promise<void> => {
-  const pump = pumpConfig.find((p) => p.id === pumpId)
+  const pump = pumpConfig.find((p) => p.pumpId === pumpId)
   if (!pump) {
     throw new Error(`Pumpe mit ID "${pumpId}" nicht gefunden.`)
   }
 
-  console.log(`Aktivierung von Pumpe ${pump.id} (GPIO ${pump.pin}) für ${durationMs}ms`)
-  await controlGpio(pump.pin, durationMs)
-  console.log(`Pumpe ${pump.id} deaktiviert.`)
+  console.log(`Aktivierung von Pumpe ${pump.pumpId} (GPIO ${pump.gpioPin}) für ${durationMs}ms`)
+  await simulateGpioControl(pump.gpioPin, durationMs)
+  console.log(`Pumpe ${pump.pumpId} deaktiviert.`)
 }
 
 // New function to make a single shot
@@ -238,20 +138,16 @@ export const makeSingleShot = async (
   amountMl: number,
   pumpConfig: PumpConfig[],
 ): Promise<void> => {
-  if (!pumpConfig || pumpConfig.length === 0) {
-    throw new Error("Keine Pumpenkonfiguration verfügbar.")
-  }
-
-  const pump = pumpConfig.find((p) => p.ingredient === ingredientId)
+  const pump = pumpConfig.find((p) => p.ingredientId === ingredientId)
   if (!pump) {
     throw new Error(`Pumpe für Zutat "${ingredientId}" nicht konfiguriert.`)
   }
 
-  const duration = (amountMl / pump.flowRate) * 1000 // ml / (ml/s) * 1000ms/s = ms
+  const duration = (amountMl / pump.calibrationValue) * 1000 // ml / (ml/s) * 1000ms/s = ms
   console.log(
-    `Zubereitung eines Shots: ${amountMl}ml ${ingredientId} (Pumpe ${pump.id}, GPIO ${pump.pin}) für ${duration}ms`,
+    `Zubereitung eines Shots: ${amountMl}ml ${ingredientId} (Pumpe ${pump.pumpId}, GPIO ${pump.gpioPin}) für ${duration}ms`,
   )
-  await controlGpio(pump.pin, duration)
+  await simulateGpioControl(pump.gpioPin, duration)
   console.log(`Shot von ${ingredientId} fertig.`)
 }
 
@@ -261,30 +157,29 @@ export const savePumpConfig = async (config: PumpConfig[]): Promise<void> => {
     setTimeout(() => {
       currentPumpConfig = config
       console.log("Pump configuration saved (simulated)")
-      savePumpConfigToStorage(currentPumpConfig)
       resolve()
     }, 300)
   })
 }
 
 export const calibratePump = async (pumpId: string, duration: number): Promise<void> => {
-  const pump = currentPumpConfig.find((p) => p.id === pumpId)
+  const pump = currentPumpConfig.find((p) => p.pumpId === pumpId)
   if (!pump) {
     throw new Error(`Pumpe mit ID "${pumpId}" nicht gefunden.`)
   }
 
-  console.log(`Kalibrierung von Pumpe ${pump.id} (GPIO ${pump.pin}) für ${duration}ms`)
-  await controlGpio(pump.pin, duration)
-  console.log(`Kalibrierung von Pumpe ${pump.id} abgeschlossen.`)
+  console.log(`Kalibrierung von Pumpe ${pump.pumpId} (GPIO ${pump.gpioPin}) für ${duration}ms`)
+  await simulateGpioControl(pump.gpioPin, duration)
+  console.log(`Kalibrierung von Pumpe ${pump.pumpId} abgeschlossen.`)
 }
 
 export const cleanPump = async (pumpId: number, duration: number): Promise<void> => {
-  const pump = currentPumpConfig.find((p) => p.id === pumpId.toString())
+  const pump = currentPumpConfig.find((p) => p.pumpId === pumpId.toString())
   if (!pump) {
     throw new Error(`Pumpe mit ID "${pumpId}" nicht gefunden.`)
   }
 
-  console.log(`Reinigung von Pumpe ${pump.id} (GPIO ${pump.pin}) für ${duration}ms`)
-  await controlGpio(pump.pin, duration)
-  console.log(`Reinigung von Pumpe ${pump.id} abgeschlossen.`)
+  console.log(`Reinigung von Pumpe ${pump.pumpId} (GPIO ${pump.gpioPin}) für ${duration}ms`)
+  await simulateGpioControl(pump.gpioPin, duration)
+  console.log(`Reinigung von Pumpe ${pump.pumpId} abgeschlossen.`)
 }
