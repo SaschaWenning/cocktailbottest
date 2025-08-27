@@ -161,7 +161,7 @@ export const makeCocktail = async (
     const scaledAmount = Math.round(item.amount * scaleFactor)
 
     if (item.type === "automatic") {
-      const pump = pumpConfig.find((p) => p.ingredientId === item.ingredientId)
+      const pump = pumpConfig.find((p) => p.ingredient === item.ingredientId)
 
       if (!pump) {
         throw new Error(`Pumpe für Zutat "${ingredient?.name || item.ingredientId}" nicht konfiguriert.`)
@@ -204,7 +204,7 @@ export const makeSingleShot = async (
   amountMl: number,
   pumpConfig: PumpConfig[],
 ): Promise<void> => {
-  const pump = pumpConfig.find((p) => p.ingredientId === ingredientId)
+  const pump = pumpConfig.find((p) => p.ingredient === ingredientId)
   if (!pump) {
     throw new Error(`Pumpe für Zutat "${ingredientId}" nicht konfiguriert.`)
   }
