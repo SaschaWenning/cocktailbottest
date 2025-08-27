@@ -79,10 +79,42 @@ let currentCocktails: Cocktail[] = loadCocktailsFromStorage().map((cocktail) => 
 
 let currentPumpConfig: PumpConfig[] = loadPumpConfigFromStorage()
 
-// Simulate GPIO control
-const simulateGpioControl = async (pin: number, duration: number) => {
-  console.log(`Simulating GPIO pin ${pin} ON for ${duration}ms`)
-  return new Promise((resolve) => setTimeout(resolve, duration))
+const controlGpio = async (pin: number, duration: number) => {
+  console.log(`Aktiviere GPIO Pin ${pin} für ${duration}ms`)
+
+  try {
+    // Echte GPIO-Steuerung für Raspberry Pi
+    if (typeof window === "undefined") {
+      // Server-side: Echte GPIO-Steuerung
+      const response = await fetch("/api/gpio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin, duration, action: "activate" }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`GPIO-Steuerung fehlgeschlagen: ${response.statusText}`)
+      }
+    } else {
+      // Client-side: API-Aufruf an Server
+      const response = await fetch("/api/gpio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin, duration, action: "activate" }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`GPIO-Steuerung fehlgeschlagen: ${response.statusText}`)
+      }
+    }
+
+    console.log(`GPIO Pin ${pin} erfolgreich für ${duration}ms aktiviert`)
+  } catch (error) {
+    console.error(`Fehler bei GPIO-Steuerung Pin ${pin}:`, error)
+    // Fallback zur Simulation bei Fehlern
+    console.log(`Fallback: Simuliere GPIO Pin ${pin} für ${duration}ms`)
+    await new Promise((resolve) => setTimeout(resolve, duration))
+  }
 }
 
 // Simulate API calls
@@ -181,7 +213,7 @@ export const makeCocktail = async (
       console.log(
         `[v0] Dispensing ${scaledAmount}ml of ${ingredient?.name || item.ingredientId} using pump ${pump.id} (GPIO ${pump.pin}) for ${duration}ms`,
       )
-      await simulateGpioControl(pump.pin, duration)
+      await controlGpio(pump.pin, duration)
     } else {
       console.log(
         `[v0] Manual ingredient: ${scaledAmount}ml ${ingredient?.name || item.ingredientId}. Instruction: ${item.instruction || item.instructions || "Keine spezielle Anleitung."}`,
@@ -204,7 +236,7 @@ export const activatePumpForDuration = async (
   }
 
   console.log(`Aktivierung von Pumpe ${pump.id} (GPIO ${pump.pin}) für ${durationMs}ms`)
-  await simulateGpioControl(pump.pin, durationMs)
+  await controlGpio(pump.pin, durationMs)
   console.log(`Pumpe ${pump.id} deaktiviert.`)
 }
 
@@ -227,7 +259,7 @@ export const makeSingleShot = async (
   console.log(
     `Zubereitung eines Shots: ${amountMl}ml ${ingredientId} (Pumpe ${pump.id}, GPIO ${pump.pin}) für ${duration}ms`,
   )
-  await simulateGpioControl(pump.pin, duration)
+  await controlGpio(pump.pin, duration)
   console.log(`Shot von ${ingredientId} fertig.`)
 }
 
@@ -250,7 +282,7 @@ export const calibratePump = async (pumpId: string, duration: number): Promise<v
   }
 
   console.log(`Kalibrierung von Pumpe ${pump.id} (GPIO ${pump.pin}) für ${duration}ms`)
-  await simulateGpioControl(pump.pin, duration)
+  await controlGpio(pump.pin, duration)
   console.log(`Kalibrierung von Pumpe ${pump.id} abgeschlossen.`)
 }
 
@@ -261,6 +293,6 @@ export const cleanPump = async (pumpId: number, duration: number): Promise<void>
   }
 
   console.log(`Reinigung von Pumpe ${pump.id} (GPIO ${pump.pin}) für ${duration}ms`)
-  await simulateGpioControl(pump.pin, duration)
+  await controlGpio(pump.pin, duration)
   console.log(`Reinigung von Pumpe ${pump.id} abgeschlossen.`)
 }

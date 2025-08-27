@@ -75,7 +75,7 @@ export default function QuickShotSelector({ pumpConfig, ingredientLevels, onShot
       }, 200)
 
       // Bereite den Shot zu
-      await makeSingleShot(ingredientId, shotSize)
+      await makeSingleShot(ingredientId, shotSize, pumpConfig)
 
       clearInterval(intervalId)
       setProgress(100)
