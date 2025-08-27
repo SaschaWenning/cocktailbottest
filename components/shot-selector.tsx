@@ -15,15 +15,9 @@ interface ShotSelectorProps {
   pumpConfig: PumpConfig[]
   ingredientLevels: IngredientLevel[]
   onShotComplete: () => Promise<void>
-  // availableIngredients?: string[] // Diese Zeile entfernen
 }
 
-export default function ShotSelector({
-  pumpConfig,
-  ingredientLevels,
-  onShotComplete,
-  // availableIngredients = [], // Diese Zeile entfernen
-}: ShotSelectorProps) {
+export default function ShotSelector({ pumpConfig, ingredientLevels, onShotComplete }: ShotSelectorProps) {
   const [selectedIngredient, setSelectedIngredient] = useState<string | null>(null)
   const [isMaking, setIsMaking] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -35,6 +29,10 @@ export default function ShotSelector({
   // Erstelle eine Liste aller verfügbaren Zutaten
   // Kombiniere Pumpen-Zutaten mit Zutaten aus Cocktail-Rezepten
   const getAllAvailableIngredients = () => {
+    if (!pumpConfig || pumpConfig.length === 0) {
+      return []
+    }
+
     // Nur Zutaten, die tatsächlich an Pumpen angeschlossen sind
     return pumpConfig.map((pump) => {
       const ingredient = ingredients.find((i) => i.id === pump.ingredient)
@@ -90,8 +88,7 @@ export default function ShotSelector({
         })
       }, 200)
 
-      // Bereite den Shot zu
-      await makeSingleShot(selectedIngredient, shotSize)
+      await makeSingleShot(selectedIngredient, shotSize, pumpConfig)
 
       clearInterval(intervalId)
       setProgress(100)
@@ -115,6 +112,18 @@ export default function ShotSelector({
       setErrorMessage(error instanceof Error ? error.message : "Unbekannter Fehler")
       setTimeout(() => setIsMaking(false), 3000)
     }
+  }
+
+  if (!pumpConfig || pumpConfig.length === 0) {
+    return (
+      <Card className="border-[hsl(var(--cocktail-card-border))] bg-black">
+        <CardContent className="pt-6">
+          <div className="text-center text-[hsl(var(--cocktail-text))]">
+            <p>Keine Pumpen konfiguriert. Bitte konfiguriere zuerst die Pumpen im Servicemenü.</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
   }
 
   if (isMaking) {
@@ -191,7 +200,7 @@ export default function ShotSelector({
 
               <div className="flex gap-2 w-full mt-4">
                 <Button
-                  className="flex-1"
+                  className="flex-1 bg-transparent"
                   variant="outline"
                   onClick={handleCancelSelection}
                   className="flex-1 bg-[hsl(var(--cocktail-card-bg))] text-[hsl(var(--cocktail-text))] border-[hsl(var(--cocktail-card-border))]"

@@ -160,7 +160,9 @@ export const makeCocktail = async (
     const ingredient = ingredients.find((i) => i.id === item.ingredientId)
     const scaledAmount = Math.round(item.amount * scaleFactor)
 
-    if (item.type === "automatic") {
+    const isManual = item.manual === true || item.type === "manual"
+
+    if (!isManual) {
       const pump = pumpConfig.find((p) => p.ingredient === item.ingredientId)
 
       if (!pump) {
@@ -174,7 +176,7 @@ export const makeCocktail = async (
       await simulateGpioControl(pump.gpioPin, duration)
     } else {
       console.log(
-        `Manuelle Zutat: ${scaledAmount}ml ${ingredient?.name || item.ingredientId}. Anleitung: ${item.instruction || "Keine spezielle Anleitung."}`,
+        `Manuelle Zutat: ${scaledAmount}ml ${ingredient?.name || item.ingredientId}. Anleitung: ${item.instruction || item.instructions || "Keine spezielle Anleitung."}`,
       )
     }
   }
@@ -204,6 +206,10 @@ export const makeSingleShot = async (
   amountMl: number,
   pumpConfig: PumpConfig[],
 ): Promise<void> => {
+  if (!pumpConfig || pumpConfig.length === 0) {
+    throw new Error("Keine Pumpenkonfiguration verfügbar.")
+  }
+
   const pump = pumpConfig.find((p) => p.ingredient === ingredientId)
   if (!pump) {
     throw new Error(`Pumpe für Zutat "${ingredientId}" nicht konfiguriert.`)
