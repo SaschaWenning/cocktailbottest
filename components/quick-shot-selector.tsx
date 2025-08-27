@@ -48,9 +48,6 @@ export default function QuickShotSelector({ pumpConfig, ingredientLevels, onShot
   const nonAlcoholicIngredients = allAvailableIngredients.filter((i) => !i.alcoholic)
 
   const checkIngredientAvailable = (ingredientId: string) => {
-    if (!ingredientLevels || !Array.isArray(ingredientLevels)) {
-      return false
-    }
     const level = ingredientLevels.find((level) => level.ingredientId === ingredientId)
     return level && level.currentAmount >= shotSize
   }

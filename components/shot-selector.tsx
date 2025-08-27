@@ -63,9 +63,6 @@ export default function ShotSelector({
   }
 
   const checkIngredientAvailable = (ingredientId: string) => {
-    if (!ingredientLevels || !Array.isArray(ingredientLevels)) {
-      return false
-    }
     const level = ingredientLevels.find((level) => level.ingredientId === ingredientId)
     // Da alle Zutaten eine Pumpe haben, prüfen wir nur den Füllstand
     return level && level.currentAmount >= shotSize
@@ -194,7 +191,7 @@ export default function ShotSelector({
 
               <div className="flex gap-2 w-full mt-4">
                 <Button
-                  className="flex-1 bg-transparent"
+                  className="flex-1"
                   variant="outline"
                   onClick={handleCancelSelection}
                   className="flex-1 bg-[hsl(var(--cocktail-card-bg))] text-[hsl(var(--cocktail-text))] border-[hsl(var(--cocktail-card-border))]"
