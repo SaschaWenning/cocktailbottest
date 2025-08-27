@@ -67,15 +67,18 @@ export const ingredients: Ingredient[] = [
 
   // Nicht-alkoholische Getränke - Kohlensäurehaltige Getränke
   { id: "cola", name: "Cola", alcoholic: false },
+  { id: "fanta", name: "Fanta", alcoholic: false },
   { id: "soda-water", name: "Sprudelwasser", alcoholic: false },
   { id: "ginger-ale", name: "Ginger Ale", alcoholic: false },
   { id: "tonic-water", name: "Tonic Water", alcoholic: false },
+  { id: "water", name: "Wasser", alcoholic: false },
 
   // Nicht-alkoholische Getränke - Milchprodukte
   { id: "cream", name: "Sahne", alcoholic: false },
   { id: "coconut-cream", name: "Kokossahne", alcoholic: false },
   { id: "coconut-milk", name: "Kokosmilch", alcoholic: false },
   { id: "creme-of-coconut", name: "Creme of Coconut", alcoholic: false },
+  { id: "milk", name: "Milch", alcoholic: false },
 
   // Sirupe
   { id: "sugar-syrup", name: "Zuckersirup", alcoholic: false },
