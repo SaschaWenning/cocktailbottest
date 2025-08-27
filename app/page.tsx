@@ -828,7 +828,6 @@ export default function Home() {
             pumpConfig={pumpConfig}
             ingredientLevels={ingredientLevels}
             onShotComplete={loadIngredientLevels}
-            availableIngredients={getAvailableIngredientsFromCocktails()}
           />
         )
       case "quickshots":
