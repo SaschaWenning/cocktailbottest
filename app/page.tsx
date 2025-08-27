@@ -336,8 +336,12 @@ export default function Home() {
       return false // Oder true, je nach gewünschtem Verhalten, wenn keine Pumpen konfiguriert sind
     }
 
-    // Filtere nur automatische Zutaten für die Füllstandsprüfung
-    const automaticRecipe = cocktail.recipe.filter((item) => !item.manual) // Verwende !item.manual für automatische Zutaten
+    const automaticRecipe = cocktail.recipe.filter((item) => {
+      // Eine Zutat ist automatisch, wenn:
+      // 1. manual explizit false ist ODER
+      // 2. manual undefined/nicht gesetzt ist UND type nicht "manual" ist
+      return item.manual === false || (item.manual !== true && item.type !== "manual")
+    })
 
     // Wenn keine automatischen Zutaten vorhanden sind, ist der Cocktail verfügbar (nur manuelle Zutaten)
     if (automaticRecipe.length === 0) return true
