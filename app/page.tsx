@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { pumpConfig as initialPumpConfig } from "@/data/pump-config"
 import { makeCocktail, getPumpConfig, saveRecipe, deleteRecipe, getAllCocktails } from "@/lib/cocktail-machine"
-import { AlertCircle, Edit, ChevronLeft, ChevronRight, Trash2, Check, Plus, Lock } from "lucide-react"
+import { AlertCircle, Edit, ChevronLeft, ChevronRight, Trash2, Check, Plus } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import type { Cocktail } from "@/types/cocktail"
 import { cocktails as defaultCocktails } from "@/data/cocktails"
@@ -16,7 +16,6 @@ import type { PumpConfig } from "@/types/pump"
 import { Badge } from "@/components/ui/badge"
 import CocktailCard from "@/components/cocktail-card"
 import PumpCleaning from "@/components/pump-cleaning"
-import PumpCalibration from "@/components/pump-calibration"
 import IngredientLevels from "@/components/ingredient-levels"
 import ShotSelector from "@/components/shot-selector"
 import PasswordModal from "@/components/password-modal"
@@ -27,6 +26,7 @@ import { Progress } from "@/components/ui/progress"
 import ImageEditor from "@/components/image-editor"
 import QuickShotSelector from "@/components/quick-shot-selector"
 import { toast } from "@/components/ui/use-toast"
+import ServiceMenu from "@/components/service-menu"
 
 // Anzahl der Cocktails pro Seite
 const COCKTAILS_PER_PAGE = 9
@@ -42,6 +42,7 @@ export default function Home() {
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [showRecipeEditor, setShowRecipeEditor] = useState(false)
   const [showRecipeCreator, setShowRecipeCreator] = useState(false)
+  const [showRecipeCreatorPasswordModal, setShowRecipeCreatorPasswordModal] = useState(false)
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
   const [cocktailToEdit, setCocktailToEdit] = useState<string | null>(null)
   const [cocktailToDelete, setCocktailToDelete] = useState<Cocktail | null>(null)
@@ -51,8 +52,6 @@ export default function Home() {
   const [lowIngredients, setLowIngredients] = useState<string[]>([])
   const [pumpConfig, setPumpConfig] = useState<PumpConfig[]>(initialPumpConfig)
   const [loading, setLoading] = useState(true)
-  const [isCalibrationLocked, setIsCalibrationLocked] = useState(true)
-  const [passwordAction, setPasswordAction] = useState<"edit" | "calibration">("edit")
   const [showImageEditor, setShowImageEditor] = useState(false)
 
   // Kiosk-Modus Exit Zähler
@@ -174,18 +173,22 @@ export default function Home() {
   }
 
   const handleCalibrationClick = () => {
-    setPasswordAction("calibration")
+    setActiveTab("service")
     setShowPasswordModal(true)
   }
 
   const handlePasswordSuccess = () => {
     setShowPasswordModal(false)
-    if (passwordAction === "edit") {
+    if (activeTab === "cocktails" || activeTab === "virgin") {
       setShowRecipeEditor(true)
-    } else if (passwordAction === "calibration") {
-      setIsCalibrationLocked(false)
-      setActiveTab("calibration")
+    } else if (activeTab === "service") {
+      setActiveTab("service")
     }
+  }
+
+  const handleRecipeCreatorPasswordSuccess = () => {
+    setShowRecipeCreatorPasswordModal(false)
+    setShowRecipeCreator(true)
   }
 
   const handleImageSave = async (updatedCocktail: Cocktail) => {
@@ -766,7 +769,7 @@ export default function Home() {
               <Button
                 variant="outline"
                 size="lg"
-                onClick={() => setShowRecipeCreator(true)}
+                onClick={() => setShowRecipeCreatorPasswordModal(true)}
                 className="bg-[hsl(var(--cocktail-card-bg))] text-[hsl(var(--cocktail-text))] border-[hsl(var(--cocktail-card-border))] hover:bg-[hsl(var(--cocktail-card-border))] shadow-lg hover:shadow-xl transition-all duration-200"
               >
                 <Plus className="h-5 w-5 mr-2" />
@@ -793,7 +796,7 @@ export default function Home() {
               <Button
                 variant="outline"
                 size="lg"
-                onClick={() => setShowRecipeCreator(true)}
+                onClick={() => setShowRecipeCreatorPasswordModal(true)}
                 className="bg-[hsl(var(--cocktail-card-bg))] text-[hsl(var(--cocktail-text))] border-[hsl(var(--cocktail-card-border))] hover:bg-[hsl(var(--cocktail-card-border))] shadow-lg hover:shadow-xl transition-all duration-200"
               >
                 <Plus className="h-5 w-5 mr-2" />
@@ -836,27 +839,16 @@ export default function Home() {
         return <IngredientLevels pumpConfig={pumpConfig} onLevelsUpdated={loadIngredientLevels} />
       case "cleaning":
         return <PumpCleaning pumpConfig={pumpConfig} />
-      case "calibration":
-        return isCalibrationLocked ? (
-          <div className="text-center py-12">
-            <div className="bg-[hsl(var(--cocktail-card-bg))] rounded-2xl p-8 max-w-md mx-auto shadow-2xl border border-[hsl(var(--cocktail-card-border))]">
-              <Lock className="h-16 w-16 mx-auto mb-6 text-[hsl(var(--cocktail-warning))]" />
-              <h2 className="text-2xl font-semibold mb-4 text-[hsl(var(--cocktail-text))]">
-                Kalibrierung ist passwortgeschützt
-              </h2>
-              <p className="text-[hsl(var(--cocktail-text-muted))] mb-6 leading-relaxed">
-                Bitte gib das Passwort ein, um die Pumpenkalibrierung zu bearbeiten.
-              </p>
-              <Button
-                onClick={handleCalibrationClick}
-                className="bg-[hsl(var(--cocktail-primary))] hover:bg-[hsl(var(--cocktail-primary-hover))] text-black font-semibold py-3 px-6 shadow-lg hover:shadow-xl transition-all duration-200"
-              >
-                Passwort eingeben
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <PumpCalibration pumpConfig={pumpConfig} onConfigUpdate={loadPumpConfig} />
+      case "service":
+        return (
+          <ServiceMenu
+            pumpConfig={pumpConfig}
+            ingredientLevels={ingredientLevels}
+            onLevelsUpdated={loadIngredientLevels}
+            onConfigUpdate={loadPumpConfig}
+            onShotComplete={loadIngredientLevels}
+            availableIngredients={getAvailableIngredientsFromCocktails()}
+          />
         )
       default:
         return null
@@ -909,44 +901,14 @@ export default function Home() {
               Shots
             </Button>
             <Button
-              onClick={() => handleTabChange("quickshots")}
+              onClick={() => handleTabChange("service")}
               className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
-                activeTab === "quickshots"
+                activeTab === "service"
                   ? "bg-[hsl(var(--cocktail-primary))] text-black scale-105"
                   : "bg-[hsl(var(--cocktail-card-bg))] text-[hsl(var(--cocktail-text))] hover:bg-[hsl(var(--cocktail-card-border))] hover:scale-102"
               }`}
             >
-              Entlüften
-            </Button>
-            <Button
-              onClick={() => handleTabChange("levels")}
-              className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
-                activeTab === "levels"
-                  ? "bg-[hsl(var(--cocktail-primary))] text-black scale-105"
-                  : "bg-[hsl(var(--cocktail-card-bg))] text-[hsl(var(--cocktail-text))] hover:bg-[hsl(var(--cocktail-card-border))] hover:scale-102"
-              }`}
-            >
-              Füllstände
-            </Button>
-            <Button
-              onClick={() => handleTabChange("cleaning")}
-              className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
-                activeTab === "cleaning"
-                  ? "bg-[hsl(var(--cocktail-primary))] text-black scale-105"
-                  : "bg-[hsl(var(--cocktail-card-bg))] text-[hsl(var(--cocktail-text))] hover:bg-[hsl(var(--cocktail-card-border))] hover:scale-102"
-              }`}
-            >
-              Reinigung
-            </Button>
-            <Button
-              onClick={() => handleTabChange("calibration")}
-              className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
-                activeTab === "calibration"
-                  ? "bg-[hsl(var(--cocktail-primary))] text-black scale-105"
-                  : "bg-[hsl(var(--cocktail-card-bg))] text-[hsl(var(--cocktail-text))] hover:bg-[hsl(var(--cocktail-card-border))] hover:scale-102"
-              }`}
-            >
-              Kalibrierung
+              Servicemenü
             </Button>
           </div>
         </nav>
@@ -959,6 +921,12 @@ export default function Home() {
         isOpen={showPasswordModal}
         onClose={() => setShowPasswordModal(false)}
         onSuccess={handlePasswordSuccess}
+      />
+
+      <PasswordModal
+        isOpen={showRecipeCreatorPasswordModal}
+        onClose={() => setShowRecipeCreatorPasswordModal(false)}
+        onSuccess={handleRecipeCreatorPasswordSuccess}
       />
 
       <RecipeEditor
