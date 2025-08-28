@@ -8,7 +8,6 @@ import { makeCocktail, getPumpConfig, saveRecipe, deleteRecipe, getAllCocktails 
 import { AlertCircle, Edit, ChevronLeft, ChevronRight, Trash2, Check, Plus } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import type { Cocktail } from "@/types/cocktail"
-import { cocktails as defaultCocktails } from "@/data/cocktails"
 import { getIngredientLevels } from "@/lib/ingredient-level-service"
 import type { IngredientLevel } from "@/types/ingredient-level"
 import { ingredients } from "@/data/ingredients"
@@ -46,7 +45,7 @@ export default function Home() {
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false)
   const [cocktailToEdit, setCocktailToEdit] = useState<string | null>(null)
   const [cocktailToDelete, setCocktailToDelete] = useState<Cocktail | null>(null)
-  const [cocktailsData, setCocktailsData] = useState<Cocktail[]>(defaultCocktails)
+  const [cocktailsData, setCocktailsData] = useState<Cocktail[]>([])
   const [ingredientLevels, setIngredientLevels] = useState<IngredientLevel[]>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [lowIngredients, setLowIngredients] = useState<string[]>([])
@@ -97,17 +96,6 @@ export default function Home() {
     const loadData = async () => {
       setLoading(true)
       try {
-        // Transform defaultCocktails to the new type structure if needed
-        const transformedDefaultCocktails = defaultCocktails.map((cocktail) => ({
-          ...cocktail,
-          recipe: cocktail.recipe.map((item) => ({
-            ...item,
-            type: (item as any).type || "automatic", // Default to 'automatic'
-            instruction: (item as any).instruction || "", // Default to empty string
-          })),
-        }))
-        setCocktailsData(transformedDefaultCocktails)
-
         await Promise.all([loadIngredientLevels(), loadPumpConfig(), loadCocktails()])
       } catch (error) {
         console.error("Fehler beim Laden der Daten:", error)
@@ -248,8 +236,7 @@ export default function Home() {
     try {
       await deleteRecipe(cocktailToDelete.id)
 
-      // Aktualisiere die lokale Liste
-      setCocktailsData((prev) => prev.filter((c) => c.id !== cocktailToDelete.id))
+      await loadCocktails()
 
       // Wenn der gelöschte Cocktail ausgewählt war, setze die Auswahl zurück
       if (selectedCocktail === cocktailToDelete.id) {
