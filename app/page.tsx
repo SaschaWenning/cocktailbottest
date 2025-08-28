@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { pumpConfig as initialPumpConfig } from "@/data/pump-config"
-import { makeCocktail, getPumpConfig, saveRecipe, deleteRecipe, getAllCocktails } from "@/lib/cocktail-machine"
+import { makeCocktail, getPumpConfig, saveRecipe, getAllCocktails } from "@/lib/cocktail-machine"
 import { AlertCircle, Edit, ChevronLeft, ChevronRight, Trash2, Check, Plus } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import type { Cocktail } from "@/types/cocktail"
@@ -110,8 +110,14 @@ export default function Home() {
   const loadCocktails = async () => {
     try {
       const cocktails = await getAllCocktails()
+
+      const hiddenCocktailsJson = localStorage.getItem("hiddenCocktails")
+      const hiddenCocktails: string[] = hiddenCocktailsJson ? JSON.parse(hiddenCocktailsJson) : []
+
+      const visibleCocktails = cocktails.filter((cocktail) => !hiddenCocktails.includes(cocktail.id))
+
       // Ensure loaded cocktails also conform to the new type
-      const transformedCocktails = cocktails.map((cocktail) => ({
+      const transformedCocktails = visibleCocktails.map((cocktail) => ({
         ...cocktail,
         recipe: cocktail.recipe.map((item) => ({
           ...item,
@@ -234,18 +240,25 @@ export default function Home() {
     if (!cocktailToDelete) return
 
     try {
-      await deleteRecipe(cocktailToDelete.id)
+      const hiddenCocktailsJson = localStorage.getItem("hiddenCocktails")
+      const hiddenCocktails: string[] = hiddenCocktailsJson ? JSON.parse(hiddenCocktailsJson) : []
+
+      // Füge die Cocktail-ID zur Liste der ausgeblendeten Cocktails hinzu
+      if (!hiddenCocktails.includes(cocktailToDelete.id)) {
+        hiddenCocktails.push(cocktailToDelete.id)
+        localStorage.setItem("hiddenCocktails", JSON.stringify(hiddenCocktails))
+      }
 
       setCocktailsData((prev) => prev.filter((c) => c.id !== cocktailToDelete.id))
 
-      // Wenn der gelöschte Cocktail ausgewählt war, setze die Auswahl zurück
+      // Wenn der ausgeblendete Cocktail ausgewählt war, setze die Auswahl zurück
       if (selectedCocktail === cocktailToDelete.id) {
         setSelectedCocktail(null)
       }
 
       setCocktailToDelete(null)
     } catch (error) {
-      console.error("Fehler beim Löschen des Cocktails:", error)
+      console.error("Fehler beim Ausblenden des Cocktails:", error)
       throw error
     }
   }
