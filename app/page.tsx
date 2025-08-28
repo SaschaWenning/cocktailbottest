@@ -109,12 +109,19 @@ export default function Home() {
 
   const loadCocktails = async () => {
     try {
+      console.log("[v0] Loading cocktails...")
       const cocktails = await getAllCocktails()
+      console.log("[v0] Loaded cocktails from getAllCocktails:", cocktails.length)
 
       const hiddenCocktailsJson = localStorage.getItem("hiddenCocktails")
+      console.log("[v0] Hidden cocktails JSON from localStorage:", hiddenCocktailsJson)
+
       const hiddenCocktails: string[] = hiddenCocktailsJson ? JSON.parse(hiddenCocktailsJson) : []
+      console.log("[v0] Parsed hidden cocktails:", hiddenCocktails)
 
       const visibleCocktails = cocktails.filter((cocktail) => !hiddenCocktails.includes(cocktail.id))
+      console.log("[v0] Visible cocktails after filtering:", visibleCocktails.length)
+      console.log("[v0] Filtered out cocktails:", cocktails.length - visibleCocktails.length)
 
       // Ensure loaded cocktails also conform to the new type
       const transformedCocktails = visibleCocktails.map((cocktail) => ({
@@ -125,6 +132,8 @@ export default function Home() {
           instruction: (item as any).instruction || "",
         })),
       }))
+
+      console.log("[v0] Setting cocktails data with", transformedCocktails.length, "cocktails")
       setCocktailsData(transformedCocktails)
     } catch (error) {
       console.error("Fehler beim Laden der Cocktails:", error)
@@ -240,16 +249,23 @@ export default function Home() {
     if (!cocktailToDelete) return
 
     try {
+      console.log("[v0] Deleting/hiding cocktail:", cocktailToDelete.id)
+
       const hiddenCocktailsJson = localStorage.getItem("hiddenCocktails")
       const hiddenCocktails: string[] = hiddenCocktailsJson ? JSON.parse(hiddenCocktailsJson) : []
+      console.log("[v0] Current hidden cocktails before adding:", hiddenCocktails)
 
       // Füge die Cocktail-ID zur Liste der ausgeblendeten Cocktails hinzu
       if (!hiddenCocktails.includes(cocktailToDelete.id)) {
         hiddenCocktails.push(cocktailToDelete.id)
         localStorage.setItem("hiddenCocktails", JSON.stringify(hiddenCocktails))
+        console.log("[v0] Updated hidden cocktails in localStorage:", hiddenCocktails)
+      } else {
+        console.log("[v0] Cocktail already in hidden list")
       }
 
       setCocktailsData((prev) => prev.filter((c) => c.id !== cocktailToDelete.id))
+      console.log("[v0] Removed cocktail from local state")
 
       // Wenn der ausgeblendete Cocktail ausgewählt war, setze die Auswahl zurück
       if (selectedCocktail === cocktailToDelete.id) {
