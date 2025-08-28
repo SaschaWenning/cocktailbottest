@@ -54,7 +54,22 @@ export const getAllCocktails = async (): Promise<Cocktail[]> => {
     setTimeout(() => {
       console.log("Fetching all cocktails (simulated)")
       const deletedIds = getDeletedCocktailIds()
-      const filteredCocktails = currentCocktails.filter((cocktail) => !deletedIds.includes(cocktail.id))
+
+      // Immer von den ursprünglichen defaultCocktails ausgehen und gelöschte herausfiltern
+      const filteredCocktails = defaultCocktails
+        .filter((cocktail) => !deletedIds.includes(cocktail.id))
+        .map((cocktail) => ({
+          ...cocktail,
+          recipe: cocktail.recipe.map((item) => ({
+            ...item,
+            type: (item as any).type || "automatic",
+            instruction: (item as any).instruction || "",
+          })),
+        }))
+
+      // Aktualisiere auch currentCocktails für Konsistenz
+      currentCocktails = filteredCocktails
+
       resolve(filteredCocktails)
     }, 500)
   })
