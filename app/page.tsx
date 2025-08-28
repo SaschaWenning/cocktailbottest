@@ -236,7 +236,7 @@ export default function Home() {
     try {
       await deleteRecipe(cocktailToDelete.id)
 
-      await loadCocktails()
+      setCocktailsData((prev) => prev.filter((c) => c.id !== cocktailToDelete.id))
 
       // Wenn der gelöschte Cocktail ausgewählt war, setze die Auswahl zurück
       if (selectedCocktail === cocktailToDelete.id) {
