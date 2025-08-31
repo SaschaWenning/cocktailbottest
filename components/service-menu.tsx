@@ -8,6 +8,7 @@ import PumpCalibration from "@/components/pump-calibration"
 import IngredientLevels from "@/components/ingredient-levels"
 import QuickShotSelector from "@/components/quick-shot-selector"
 import PasswordModal from "@/components/password-modal"
+import { IngredientManager } from "@/components/ingredient-manager"
 import type { PumpConfig } from "@/types/pump"
 import type { IngredientLevel } from "@/types/ingredient-level"
 
@@ -87,6 +88,8 @@ export default function ServiceMenu({
         return <PumpCleaning pumpConfig={pumpConfig} />
       case "kalibrierung":
         return <PumpCalibration pumpConfig={pumpConfig} onConfigUpdate={onConfigUpdate} />
+      case "zutaten":
+        return <IngredientManager onClose={() => setActiveServiceTab("fuellstaende")} />
       default:
         return null
     }
@@ -113,7 +116,7 @@ export default function ServiceMenu({
               onClick={() => setActiveServiceTab("entlueften")}
               className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
                 activeServiceTab === "entlueften"
-                  ? "bg-[hsl(var(--cocktail-primary))] text-black scale-105"
+                  ? "bg-[#00ff00] text-black scale-105"
                   : "bg-[hsl(var(--cocktail-card-bg))] text-[hsl(var(--cocktail-text))] hover:bg-[hsl(var(--cocktail-card-border))] hover:scale-102"
               }`}
             >
@@ -123,7 +126,7 @@ export default function ServiceMenu({
               onClick={() => setActiveServiceTab("fuellstaende")}
               className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
                 activeServiceTab === "fuellstaende"
-                  ? "bg-[hsl(var(--cocktail-primary))] text-black scale-105"
+                  ? "bg-[#00ff00] text-black scale-105"
                   : "bg-[hsl(var(--cocktail-card-bg))] text-[hsl(var(--cocktail-text))] hover:bg-[hsl(var(--cocktail-card-border))] hover:scale-102"
               }`}
             >
@@ -133,7 +136,7 @@ export default function ServiceMenu({
               onClick={() => setActiveServiceTab("reinigung")}
               className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
                 activeServiceTab === "reinigung"
-                  ? "bg-[hsl(var(--cocktail-primary))] text-black scale-105"
+                  ? "bg-[#00ff00] text-black scale-105"
                   : "bg-[hsl(var(--cocktail-card-bg))] text-[hsl(var(--cocktail-text))] hover:bg-[hsl(var(--cocktail-card-border))] hover:scale-102"
               }`}
             >
@@ -143,11 +146,21 @@ export default function ServiceMenu({
               onClick={() => setActiveServiceTab("kalibrierung")}
               className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
                 activeServiceTab === "kalibrierung"
-                  ? "bg-[hsl(var(--cocktail-primary))] text-black scale-105"
+                  ? "bg-[#00ff00] text-black scale-105"
                   : "bg-[hsl(var(--cocktail-card-bg))] text-[hsl(var(--cocktail-text))] hover:bg-[hsl(var(--cocktail-card-border))] hover:scale-102"
               }`}
             >
               Kalibrierung
+            </Button>
+            <Button
+              onClick={() => setActiveServiceTab("zutaten")}
+              className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
+                activeServiceTab === "zutaten"
+                  ? "bg-[#00ff00] text-black scale-105"
+                  : "bg-[hsl(var(--cocktail-card-bg))] text-[hsl(var(--cocktail-text))] hover:bg-[hsl(var(--cocktail-card-border))] hover:scale-102"
+              }`}
+            >
+              Zutaten
             </Button>
           </div>
         </nav>
