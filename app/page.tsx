@@ -10,7 +10,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import type { Cocktail } from "@/types/cocktail"
 import { getIngredientLevels } from "@/lib/ingredient-level-service"
 import type { IngredientLevel } from "@/types/ingredient-level"
-import { ingredients } from "@/data/ingredients"
 import type { PumpConfig } from "@/types/pump"
 import { Badge } from "@/components/ui/badge"
 import CocktailCard from "@/components/cocktail-card"
@@ -26,6 +25,7 @@ import ImageEditor from "@/components/image-editor"
 import QuickShotSelector from "@/components/quick-shot-selector"
 import { toast } from "@/components/ui/use-toast"
 import ServiceMenu from "@/components/service-menu"
+import { getAllIngredients } from "@/lib/ingredients"
 
 // Anzahl der Cocktails pro Seite
 const COCKTAILS_PER_PAGE = 9
@@ -52,6 +52,10 @@ export default function Home() {
   const [pumpConfig, setPumpConfig] = useState<PumpConfig[]>(initialPumpConfig)
   const [loading, setLoading] = useState(true)
   const [showImageEditor, setShowImageEditor] = useState(false)
+  const [allIngredientsData, setAllIngredientsData] = useState<any[]>([]) // State für alle Zutaten (Standard + benutzerdefiniert) hinzugefügt
+  const [manualIngredients, setManualIngredients] = useState<
+    Array<{ ingredientId: string; amount: number; instructions?: string }>
+  >([]) // State für manuelle Zutaten hinzugefügt
 
   // Kiosk-Modus Exit Zähler
   const [kioskExitClicks, setKioskExitClicks] = useState(0)
@@ -96,7 +100,7 @@ export default function Home() {
     const loadData = async () => {
       setLoading(true)
       try {
-        await Promise.all([loadIngredientLevels(), loadPumpConfig(), loadCocktails()])
+        await Promise.all([loadIngredientLevels(), loadPumpConfig(), loadCocktails(), loadAllIngredients()])
       } catch (error) {
         console.error("Fehler beim Laden der Daten:", error)
       } finally {
@@ -159,6 +163,15 @@ export default function Home() {
       setLowIngredients(lowLevels.map((level) => level.ingredientId))
     } catch (error) {
       console.error("Fehler beim Laden der Füllstände:", error)
+    }
+  }
+
+  const loadAllIngredients = async () => {
+    try {
+      const ingredients = await getAllIngredients()
+      setAllIngredientsData(ingredients)
+    } catch (error) {
+      console.error("Fehler beim Laden der Zutaten:", error)
     }
   }
 
@@ -289,10 +302,22 @@ export default function Home() {
     setProgress(0)
     setStatusMessage("Bereite Cocktail vor...")
     setErrorMessage(null)
+    setManualIngredients([]) // Reset manuelle Zutaten
 
     try {
       // Lade die aktuellste Pumpenkonfiguration
       const currentPumpConfig = await getPumpConfig()
+
+      const totalRecipeVolume = cocktail.recipe.reduce((total, item) => total + item.amount, 0)
+      const scaleFactor = selectedSize / totalRecipeVolume
+
+      const manualRecipeItems = cocktail.recipe
+        .filter((item) => item.manual === true || item.type === "manual")
+        .map((item) => ({
+          ingredientId: item.ingredientId,
+          amount: Math.round(item.amount * scaleFactor),
+          instructions: item.instructions || item.instruction,
+        }))
 
       // Simuliere den Fortschritt
       let intervalId: NodeJS.Timeout
@@ -311,23 +336,37 @@ export default function Home() {
 
       clearInterval(intervalId)
       setProgress(100)
-      setStatusMessage(`${cocktail.name} (${selectedSize}ml) fertig!`)
+
+      if (manualRecipeItems.length > 0) {
+        setManualIngredients(manualRecipeItems)
+        setStatusMessage(
+          `${cocktail.name} (${selectedSize}ml) automatisch zubereitet! Bitte manuelle Zutaten hinzufügen.`,
+        )
+      } else {
+        setStatusMessage(`${cocktail.name} (${selectedSize}ml) fertig!`)
+      }
+
       setShowSuccess(true)
 
       // Aktualisiere die Füllstände nach erfolgreicher Zubereitung
       await loadIngredientLevels()
 
-      setTimeout(() => {
-        setIsMaking(false)
-        setShowSuccess(false)
-        setSelectedCocktail(null)
-      }, 3000)
+      setTimeout(
+        () => {
+          setIsMaking(false)
+          setShowSuccess(false)
+          setSelectedCocktail(null)
+          setManualIngredients([]) // Reset manuelle Zutaten nach Timeout
+        },
+        manualRecipeItems.length > 0 ? 8000 : 3000,
+      ) // Längere Anzeige bei manuellen Zutaten
     } catch (error) {
       let intervalId: NodeJS.Timeout
       clearInterval(intervalId)
       setProgress(0)
       setStatusMessage("Fehler bei der Zubereitung!")
       setErrorMessage(error instanceof Error ? error.message : "Unbekannter Fehler")
+      setManualIngredients([]) // Reset bei Fehler
       setTimeout(() => setIsMaking(false), 3000)
     }
   }
@@ -397,7 +436,7 @@ export default function Home() {
   }
 
   const getIngredientName = (id: string) => {
-    const ingredient = ingredients.find((i) => i.id === id)
+    const ingredient = allIngredientsData.find((i) => i.id === id)
     return ingredient ? ingredient.name : id
   }
 
@@ -600,8 +639,13 @@ export default function Home() {
                   <h4 className="text-lg font-semibold mb-3 text-[hsl(var(--cocktail-text))]">Zutaten:</h4>
                   <ul className="space-y-2 text-[hsl(var(--cocktail-text))]">
                     {cocktail.recipe.map((item, index) => {
-                      const ingredient = ingredients.find((i) => i.id === item.ingredientId)
-                      const ingredientName = ingredient ? ingredient.name : item.ingredientId
+                      const ingredient = allIngredientsData.find((i) => i.id === item.ingredientId)
+                      let ingredientName = ingredient ? ingredient.name : item.ingredientId
+
+                      if (!ingredient && item.ingredientId.startsWith("custom-")) {
+                        ingredientName = item.ingredientId.replace(/^custom-\d+-/, "")
+                      }
+
                       return (
                         <li
                           key={index}
@@ -610,10 +654,10 @@ export default function Home() {
                           <span className="mr-2 text-[hsl(var(--cocktail-primary))]">•</span>
                           <span>
                             {item.amount}ml {ingredientName}
-                            {item.type === "manual" && (
+                            {(item.manual === true || item.type === "manual") && (
                               <span className="text-[hsl(var(--cocktail-text-muted))] ml-2">(manuell)</span>
                             )}
-                            {item.type === "manual" && item.instruction && (
+                            {(item.manual === true || item.type === "manual") && item.instruction && (
                               <span className="block text-sm text-[hsl(var(--cocktail-text-muted))] italic mt-1">
                                 Anleitung: {item.instruction}
                               </span>
@@ -636,7 +680,7 @@ export default function Home() {
                         onClick={() => setSelectedSize(size)}
                         className={`py-3 px-4 rounded-lg transition-all duration-200 font-medium ${
                           selectedSize === size
-                            ? "bg-[hsl(var(--cocktail-primary))] text-black shadow-lg scale-105"
+                            ? "bg-[#00ff00] text-black shadow-lg scale-105"
                             : "bg-[hsl(var(--cocktail-card-bg))] text-[hsl(var(--cocktail-text))] hover:bg-[hsl(var(--cocktail-card-border))] hover:scale-102"
                         }`}
                       >
@@ -660,7 +704,7 @@ export default function Home() {
                   <Button
                     onClick={handleMakeCocktail}
                     disabled={!checkIngredientsAvailable()}
-                    className="w-full py-3 text-lg bg-[hsl(var(--cocktail-primary))] hover:bg-[hsl(var(--cocktail-primary-hover))] text-black font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
+                    className="w-full py-3 text-lg bg-[#00ff00] hover:bg-[#00ff00] text-black font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
                   >
                     Cocktail zubereiten ({selectedSize}ml)
                   </Button>
@@ -723,7 +767,7 @@ export default function Home() {
           size="sm"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className="h-10 w-10 p-0 bg-[hsl(var(--cocktail-primary))] text-black border-[hsl(var(--cocktail-primary))] hover:bg-[hsl(var(--cocktail-primary-hover))] disabled:opacity-50 disabled:bg-[hsl(var(--cocktail-card-bg))] disabled:text-[hsl(var(--cocktail-text))] disabled:border-[hsl(var(--cocktail-card-border))] shadow-lg"
+          className="h-10 w-10 p-0 bg-[#00ff00] text-black border-[#00ff00] hover:bg-[#00ff00] disabled:opacity-50 disabled:bg-[hsl(var(--cocktail-card-bg))] disabled:text-[hsl(var(--cocktail-text))] disabled:border-[hsl(var(--cocktail-card-border))] shadow-lg"
         >
           <ChevronLeft className="h-5 w-5" />
         </Button>
@@ -735,7 +779,7 @@ export default function Home() {
           size="sm"
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className="h-10 w-10 p-0 bg-[hsl(var(--cocktail-primary))] text-black border-[hsl(var(--cocktail-primary))] hover:bg-[hsl(var(--cocktail-primary-hover))] disabled:opacity-50 disabled:bg-[hsl(var(--cocktail-card-bg))] disabled:text-[hsl(var(--cocktail-text))] disabled:border-[hsl(var(--cocktail-card-border))] shadow-lg"
+          className="h-10 w-10 p-0 bg-[#00ff00] text-black border-[#00ff00] hover:bg-[#00ff00] disabled:opacity-50 disabled:bg-[hsl(var(--cocktail-card-bg))] disabled:text-[hsl(var(--cocktail-text))] disabled:border-[hsl(var(--cocktail-card-border))] shadow-lg"
         >
           <ChevronRight className="h-5 w-5" />
         </Button>
@@ -762,6 +806,40 @@ export default function Home() {
                   <AlertCircle className="h-4 w-4 text-[hsl(var(--cocktail-error))]" />
                   <AlertDescription className="text-[hsl(var(--cocktail-error))]">{errorMessage}</AlertDescription>
                 </Alert>
+              )}
+
+              {showSuccess && manualIngredients.length > 0 && (
+                <div className="bg-[hsl(var(--cocktail-card-bg))]/50 p-6 rounded-lg border border-[hsl(var(--cocktail-card-border))]">
+                  <h3 className="text-lg font-semibold mb-4 text-[hsl(var(--cocktail-primary))]">
+                    Bitte folgende Zutaten manuell hinzufügen:
+                  </h3>
+                  <ul className="space-y-3">
+                    {manualIngredients.map((item, index) => {
+                      const ingredient = allIngredientsData.find((i) => i.id === item.ingredientId)
+                      let ingredientName = ingredient ? ingredient.name : item.ingredientId
+
+                      if (!ingredient && item.ingredientId.startsWith("custom-")) {
+                        ingredientName = item.ingredientId.replace(/^custom-\d+-/, "")
+                      }
+
+                      return (
+                        <li key={index} className="flex items-start bg-[hsl(var(--cocktail-card-bg))]/30 p-3 rounded">
+                          <span className="mr-3 text-[hsl(var(--cocktail-primary))] font-bold">•</span>
+                          <div>
+                            <span className="font-medium text-[hsl(var(--cocktail-text))]">
+                              {item.amount}ml {ingredientName}
+                            </span>
+                            {item.instructions && (
+                              <p className="text-sm text-[hsl(var(--cocktail-text-muted))] mt-1 italic">
+                                {item.instructions}
+                              </p>
+                            )}
+                          </div>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
               )}
 
               {showSuccess && (
@@ -892,40 +970,40 @@ export default function Home() {
           <div className="flex overflow-x-auto space-x-3 pb-2">
             <Button
               onClick={() => handleTabChange("cocktails")}
-              className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
+              className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl focus:outline-none ${
                 activeTab === "cocktails"
-                  ? "bg-[hsl(var(--cocktail-primary))] text-black scale-105"
-                  : "bg-[hsl(var(--cocktail-card-bg))] text-[hsl(var(--cocktail-text))] hover:bg-[hsl(var(--cocktail-card-border))] hover:scale-102"
+                  ? "bg-[#00ff00] text-black scale-105 focus:bg-[#00ff00]"
+                  : "bg-[hsl(var(--cocktail-card-bg))] text-[hsl(var(--cocktail-text))] hover:bg-[hsl(var(--cocktail-card-border))] hover:scale-102 focus:bg-[#00ff00] focus:text-black"
               }`}
             >
               Cocktails
             </Button>
             <Button
               onClick={() => handleTabChange("virgin")}
-              className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
+              className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl focus:outline-none ${
                 activeTab === "virgin"
-                  ? "bg-[hsl(var(--cocktail-primary))] text-black scale-105"
-                  : "bg-[hsl(var(--cocktail-card-bg))] text-[hsl(var(--cocktail-text))] hover:bg-[hsl(var(--cocktail-card-border))] hover:scale-102"
+                  ? "bg-[#00ff00] text-black scale-105 focus:bg-[#00ff00]"
+                  : "bg-[hsl(var(--cocktail-card-bg))] text-[hsl(var(--cocktail-text))] hover:bg-[hsl(var(--cocktail-card-border))] hover:scale-102 focus:bg-[#00ff00] focus:text-black"
               }`}
             >
               Alkoholfrei
             </Button>
             <Button
               onClick={() => handleTabChange("shots")}
-              className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
+              className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl focus:outline-none ${
                 activeTab === "shots"
-                  ? "bg-[hsl(var(--cocktail-primary))] text-black scale-105"
-                  : "bg-[hsl(var(--cocktail-card-bg))] text-[hsl(var(--cocktail-text))] hover:bg-[hsl(var(--cocktail-card-border))] hover:scale-102"
+                  ? "bg-[#00ff00] text-black scale-105 focus:bg-[#00ff00]"
+                  : "bg-[hsl(var(--cocktail-card-bg))] text-[hsl(var(--cocktail-text))] hover:bg-[hsl(var(--cocktail-card-border))] hover:scale-102 focus:bg-[#00ff00] focus:text-black"
               }`}
             >
               Shots
             </Button>
             <Button
               onClick={() => handleTabChange("service")}
-              className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
+              className={`flex-1 py-3 px-6 rounded-xl font-medium transition-all duration-200 shadow-lg hover:shadow-xl focus:outline-none ${
                 activeTab === "service"
-                  ? "bg-[hsl(var(--cocktail-primary))] text-black scale-105"
-                  : "bg-[hsl(var(--cocktail-card-bg))] text-[hsl(var(--cocktail-text))] hover:bg-[hsl(var(--cocktail-card-border))] hover:scale-102"
+                  ? "bg-[#00ff00] text-black scale-105 focus:bg-[#00ff00]"
+                  : "bg-[hsl(var(--cocktail-card-bg))] text-[hsl(var(--cocktail-text))] hover:bg-[hsl(var(--cocktail-card-border))] hover:scale-102 focus:bg-[#00ff00] focus:text-black"
               }`}
             >
               Servicemenü
